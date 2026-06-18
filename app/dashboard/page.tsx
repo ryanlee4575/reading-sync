@@ -52,13 +52,16 @@ export default function DashboardPage() {
     }
 
     loadGroups();
-  }, [supabase]);
+  }, []);
 
   async function deleteGroup(groupId: string) {
     const confirmed = window.confirm("Delete this group?");
     if (!confirmed) return;
 
-    const { error } = await supabase.from("groups").delete().eq("id", groupId);
+    const { error } = await supabase
+      .from("groups")
+      .delete()
+      .eq("id", groupId);
 
     if (error) {
       console.error(error);
@@ -75,7 +78,7 @@ export default function DashboardPage() {
     <main className="min-h-screen p-6">
       <h1 className="mb-6 text-3xl font-bold">Dashboard</h1>
 
-      <section className="mb-4 rounded-xl border p-4">
+      <section className="mb-6 rounded-xl border p-4">
         <h2 className="text-xl font-semibold">Your Groups</h2>
 
         <div className="mt-4 space-y-3">
@@ -83,9 +86,18 @@ export default function DashboardPage() {
             <p className="text-gray-600">Loading groups...</p>
           ) : memberships.length > 0 ? (
             memberships.map((membership) => (
-              <div key={membership.group_id} className="rounded-lg border p-3">
-                <Link href={`/group/${membership.groups.id}`} className="block">
-                  <p className="font-semibold">{membership.groups.name}</p>
+              <div
+                key={membership.group_id}
+                className="rounded-lg border p-3"
+              >
+                <Link
+                  href={`/group/${membership.groups.id}`}
+                  className="block"
+                >
+                  <p className="font-semibold">
+                    {membership.groups.name}
+                  </p>
+
                   <p className="text-sm text-gray-600">
                     Invite Code: {membership.groups.invite_code}
                   </p>
@@ -93,7 +105,7 @@ export default function DashboardPage() {
 
                 <button
                   onClick={() => deleteGroup(membership.groups.id)}
-                  className="mt-3 rounded-lg border px-3 py-1 text-sm"
+                  className="mt-3 rounded-lg border px-3 py-1 text-sm hover:bg-gray-100"
                 >
                   Delete
                 </button>
@@ -111,6 +123,13 @@ export default function DashboardPage() {
           className="rounded-lg bg-black px-4 py-2 text-white"
         >
           Create Group
+        </Link>
+
+        <Link
+          href="/join-group"
+          className="rounded-lg border px-4 py-2"
+        >
+          Join Group
         </Link>
       </div>
     </main>
