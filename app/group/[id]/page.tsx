@@ -20,6 +20,7 @@ type ReadingSession = {
   book_title: string;
   total_chapters: number;
   created_at: string;
+  is_active: boolean;
   progress: ProgressRow[];
 };
 
@@ -63,6 +64,7 @@ export default function GroupPage() {
           book_title,
           total_chapters,
           created_at,
+          is_active,
           progress (
             user_id,
             chapter_completed
@@ -86,7 +88,9 @@ export default function GroupPage() {
     loadGroup();
   }, [groupId]);
 
-  const currentSession = group?.reading_sessions[0];
+  const currentSession = group?.reading_sessions.find(
+    (session) => session.is_active
+  );
 
   function getMemberProgress(userId: string) {
     if (!currentSession) return 0;
@@ -116,6 +120,30 @@ export default function GroupPage() {
       })
       .eq("reading_session_id", currentSession.id)
       .eq("user_id", currentUserId);
+
+    if (error) {
+      console.error(error);
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage("");
+    await loadGroup();
+  }
+
+  async function deleteCurrentBook() {
+    if (!currentSession) return;
+
+    const confirmed = window.confirm(
+      "Delete this book and all progress? This cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("reading_sessions")
+      .delete()
+      .eq("id", currentSession.id);
 
     if (error) {
       console.error(error);
@@ -163,6 +191,13 @@ export default function GroupPage() {
               Complete Next Chapter
             </button>
 
+            <button
+              onClick={deleteCurrentBook}
+              className="mt-3 block rounded-lg border px-4 py-2 text-sm text-red-600"
+            >
+              Delete / Replace Book
+            </button>
+
             <p className="mt-2 text-sm text-gray-600">
               Your progress: {myProgress} / {currentSession.total_chapters}
             </p>
@@ -179,6 +214,8 @@ export default function GroupPage() {
             >
               Start Reading
             </Link>
+
+            {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
           </div>
         )}
       </section>

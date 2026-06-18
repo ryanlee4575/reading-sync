@@ -51,6 +51,7 @@ export default function CreateSessionPage() {
         book_title: bookTitle.trim(),
         total_chapters: chapterCount,
         created_by: user.id,
+        is_active: true,
       })
       .select("id")
       .single();
