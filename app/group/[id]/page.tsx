@@ -6,7 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 
 type Member = {
+  user_id: string;
   display_name: string;
+};
+
+type ProgressRow = {
+  user_id: string;
+  chapter_completed: number;
 };
 
 type ReadingSession = {
@@ -14,6 +20,7 @@ type ReadingSession = {
   book_title: string;
   total_chapters: number;
   created_at: string;
+  progress: ProgressRow[];
 };
 
 type Group = {
@@ -30,41 +37,95 @@ export default function GroupPage() {
   const groupId = params.id as string;
 
   const [group, setGroup] = useState<Group | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    async function loadGroup() {
-      const { data, error } = await supabase
-        .from("groups")
-        .select(`
+  async function loadGroup() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    setCurrentUserId(user?.id ?? null);
+
+    const { data, error } = await supabase
+      .from("groups")
+      .select(`
+        id,
+        name,
+        invite_code,
+        group_members (
+          user_id,
+          display_name
+        ),
+        reading_sessions (
           id,
-          name,
-          invite_code,
-          group_members (
-            display_name
-          ),
-          reading_sessions (
-            id,
-            book_title,
-            total_chapters,
-            created_at
+          book_title,
+          total_chapters,
+          created_at,
+          progress (
+            user_id,
+            chapter_completed
           )
-        `)
-        .eq("id", groupId)
-        .single();
+        )
+      `)
+      .eq("id", groupId)
+      .single();
 
-      if (error) {
-        console.error(error);
-        setGroup(null);
-      } else {
-        setGroup(data as Group);
-      }
-
-      setLoading(false);
+    if (error) {
+      console.error(error);
+      setGroup(null);
+    } else {
+      setGroup(data as Group);
     }
 
+    setLoading(false);
+  }
+
+  useEffect(() => {
     loadGroup();
   }, [groupId]);
+
+  const currentSession = group?.reading_sessions[0];
+
+  function getMemberProgress(userId: string) {
+    if (!currentSession) return 0;
+
+    const row = currentSession.progress.find(
+      (progress) => progress.user_id === userId
+    );
+
+    return row?.chapter_completed ?? 0;
+  }
+
+  async function completeNextChapter() {
+    if (!currentSession || !currentUserId) return;
+
+    const currentProgress = getMemberProgress(currentUserId);
+
+    if (currentProgress >= currentSession.total_chapters) {
+      setMessage("You already finished the book.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("progress")
+      .update({
+        chapter_completed: currentProgress + 1,
+        last_completed_at: new Date().toISOString(),
+      })
+      .eq("reading_session_id", currentSession.id)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      console.error(error);
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage("");
+    await loadGroup();
+  }
 
   if (loading) {
     return <main className="min-h-screen p-6">Loading...</main>;
@@ -74,14 +135,15 @@ export default function GroupPage() {
     return <main className="min-h-screen p-6">Group not found.</main>;
   }
 
-  const currentSession = group.reading_sessions[0];
+  const myProgress = currentUserId ? getMemberProgress(currentUserId) : 0;
 
   return (
     <main className="min-h-screen p-6">
       <h1 className="text-3xl font-bold">{group.name}</h1>
 
       <p className="mt-2 text-gray-600">
-        Invite Code: <span className="font-mono font-bold">{group.invite_code}</span>
+        Invite Code:{" "}
+        <span className="font-mono font-bold">{group.invite_code}</span>
       </p>
 
       <section className="mt-8 rounded-xl border p-4">
@@ -91,8 +153,21 @@ export default function GroupPage() {
           <div className="mt-2">
             <p className="font-semibold">{currentSession.book_title}</p>
             <p className="text-gray-600">
-              0 / {currentSession.total_chapters} chapters
+              {currentSession.total_chapters} chapters total
             </p>
+
+            <button
+              onClick={completeNextChapter}
+              className="mt-4 rounded-lg bg-black px-4 py-2 text-white"
+            >
+              Complete Next Chapter
+            </button>
+
+            <p className="mt-2 text-sm text-gray-600">
+              Your progress: {myProgress} / {currentSession.total_chapters}
+            </p>
+
+            {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
           </div>
         ) : (
           <div className="mt-2">
@@ -109,11 +184,25 @@ export default function GroupPage() {
       </section>
 
       <section className="mt-8 rounded-xl border p-4">
-        <h2 className="text-xl font-semibold">Members</h2>
+        <h2 className="text-xl font-semibold">Progress</h2>
 
         <div className="mt-4 space-y-2">
           {group.group_members.map((member) => (
-            <p key={member.display_name}>{member.display_name}</p>
+            <div
+              key={member.user_id}
+              className="flex items-center justify-between rounded-lg border p-3"
+            >
+              <span>{member.display_name}</span>
+
+              {currentSession ? (
+                <span className="text-gray-600">
+                  {getMemberProgress(member.user_id)} /{" "}
+                  {currentSession.total_chapters}
+                </span>
+              ) : (
+                <span className="text-gray-600">No book</span>
+              )}
+            </div>
           ))}
         </div>
       </section>
