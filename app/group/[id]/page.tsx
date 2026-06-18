@@ -1,18 +1,20 @@
 type GroupPageProps = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
-export default function GroupPage({ params }: GroupPageProps) {
+export default async function GroupPage({ params }: GroupPageProps) {
+  const { id } = await params;
+
   return (
     <main className="min-h-screen p-6">
-      <h1 className="text-3xl font-bold mb-2">Group</h1>
-      <p className="text-gray-600 mb-6">Group ID: {params.id}</p>
+      <h1 className="mb-2 text-3xl font-bold">Group</h1>
+      <p className="mb-6 text-gray-600">Group ID: {id}</p>
 
-      <section className="rounded-xl border p-4 mb-4">
+      <section className="mb-4 rounded-xl border p-4">
         <h2 className="text-xl font-semibold">Current Book</h2>
-        <p className="text-gray-600 mt-2">No reading session yet.</p>
+        <p className="mt-2 text-gray-600">No reading session yet.</p>
       </section>
 
       <section className="rounded-xl border p-4">
