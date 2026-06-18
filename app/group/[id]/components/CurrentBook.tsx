@@ -18,52 +18,64 @@ export default function CurrentBook({
   onCompleteChapter,
   onDeleteBook,
 }: CurrentBookProps) {
+  if (!currentSession) {
+    return (
+      <section className="border-b py-8">
+        <p className="text-gray-600">No active book.</p>
+
+        <Link
+          href={`/group/${groupId}/create-session`}
+          className="mt-4 inline-block rounded-lg bg-black px-4 py-2 text-white"
+        >
+          Start Reading
+        </Link>
+      </section>
+    );
+  }
+
+  const percent = (myProgress / currentSession.total_chapters) * 100;
+  const isFinished = myProgress >= currentSession.total_chapters;
+
   return (
-    <section className="mt-8 rounded-xl border p-4">
-      <h2 className="text-xl font-semibold">Current Book</h2>
+    <section className="border-b py-8">
+      <p className="text-sm text-gray-500">Current Book</p>
 
-      {currentSession ? (
-        <div className="mt-2">
-          <p className="font-semibold">{currentSession.book_title}</p>
+      <h2 className="mt-1 text-2xl font-semibold">
+        📖 {currentSession.book_title}
+      </h2>
 
-          <p className="text-gray-600">
-            {currentSession.total_chapters} chapters total
-          </p>
-
-          <button
-            onClick={onCompleteChapter}
-            className="mt-4 rounded-lg bg-black px-4 py-2 text-white"
-          >
-            Complete Next Chapter
-          </button>
-
-          <button
-            onClick={onDeleteBook}
-            className="mt-3 block rounded-lg border px-4 py-2 text-sm text-red-600"
-          >
-            Delete / Replace Book
-          </button>
-
-          <p className="mt-2 text-sm text-gray-600">
-            Your progress: {myProgress} / {currentSession.total_chapters}
-          </p>
-
-          {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
+      <div className="mt-6">
+        <div className="mb-2 flex justify-between text-sm">
+          <span>Your progress</span>
+          <span>
+            {myProgress} / {currentSession.total_chapters}
+          </span>
         </div>
-      ) : (
-        <div className="mt-2">
-          <p className="text-gray-600">No reading session yet.</p>
 
-          <Link
-            href={`/group/${groupId}/create-session`}
-            className="mt-4 inline-block rounded-lg bg-black px-4 py-2 text-white"
-          >
-            Start Reading
-          </Link>
-
-          {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
+        <div className="h-2 rounded-full bg-gray-200">
+          <div
+            className="h-2 rounded-full bg-black"
+            style={{ width: `${percent}%` }}
+          />
         </div>
-      )}
+      </div>
+
+      <button
+        onClick={onCompleteChapter}
+        disabled={isFinished}
+        className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300"
+      >
+        {isFinished ? "Book Finished" : "Complete Next Chapter"}
+      </button>
+
+      <button
+        onClick={onDeleteBook}
+        className="mt-3 text-sm text-gray-500 underline"
+      >
+        Delete / Replace Book
+      </button>
+
+      {message && <p className="mt-3 text-sm text-red-600">{message}</p>}
     </section>
   );
 }

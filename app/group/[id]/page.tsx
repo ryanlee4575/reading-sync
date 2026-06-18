@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 
@@ -68,14 +69,8 @@ export default function GroupPage() {
       .channel(`progress-${groupId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "progress",
-        },
-        () => {
-          loadGroup();
-        }
+        { event: "*", schema: "public", table: "progress" },
+        () => loadGroup()
       )
       .subscribe();
 
@@ -83,14 +78,8 @@ export default function GroupPage() {
       .channel(`session-${groupId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "reading_sessions",
-        },
-        () => {
-          loadGroup();
-        }
+        { event: "*", schema: "public", table: "reading_sessions" },
+        () => loadGroup()
       )
       .subscribe();
 
@@ -98,14 +87,8 @@ export default function GroupPage() {
       .channel(`members-${groupId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "group_members",
-        },
-        () => {
-          loadGroup();
-        }
+        { event: "*", schema: "public", table: "group_members" },
+        () => loadGroup()
       )
       .subscribe();
 
@@ -156,7 +139,6 @@ export default function GroupPage() {
     }
 
     setMessage("");
-    await loadGroup();
   }
 
   async function deleteCurrentBook() {
@@ -180,37 +162,60 @@ export default function GroupPage() {
     }
 
     setMessage("");
-    await loadGroup();
   }
 
   if (loading) {
-    return <main className="min-h-screen p-6">Loading...</main>;
+    return (
+      <main className="min-h-screen p-6">
+        <div className="mx-auto max-w-xl">Loading...</div>
+      </main>
+    );
   }
 
   if (!group) {
-    return <main className="min-h-screen p-6">Group not found.</main>;
+    return (
+      <main className="min-h-screen p-6">
+        <div className="mx-auto max-w-xl">Group not found.</div>
+      </main>
+    );
   }
 
   const myProgress = currentUserId ? getMemberProgress(currentUserId) : 0;
 
   return (
     <main className="min-h-screen p-6">
-      <GroupHeader name={group.name} inviteCode={group.invite_code} />
+      <div className="mx-auto max-w-xl space-y-8">
+        <Link
+          href="/dashboard"
+          className="inline-flex text-sm text-gray-500 hover:text-black"
+        >
+          ← All Groups
+        </Link>
 
-      <CurrentBook
-        groupId={group.id}
-        currentSession={currentSession}
-        myProgress={myProgress}
-        message={message}
-        onCompleteChapter={completeNextChapter}
-        onDeleteBook={deleteCurrentBook}
-      />
+        <GroupHeader
+          name={group.name}
+          inviteCode={group.invite_code}
+          onCopyInvite={() => {
+            navigator.clipboard.writeText(group.invite_code);
+            setMessage("Invite code copied.");
+          }}
+        />
 
-      <ProgressList
-        members={group.group_members}
-        currentSession={currentSession}
-        getMemberProgress={getMemberProgress}
-      />
+        <CurrentBook
+          groupId={group.id}
+          currentSession={currentSession}
+          myProgress={myProgress}
+          message={message}
+          onCompleteChapter={completeNextChapter}
+          onDeleteBook={deleteCurrentBook}
+        />
+
+        <ProgressList
+          members={group.group_members}
+          currentSession={currentSession}
+          getMemberProgress={getMemberProgress}
+        />
+      </div>
     </main>
   );
 }

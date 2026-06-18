@@ -4,12 +4,26 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
+type ProgressRow = {
+  user_id: string;
+  chapter_completed: number;
+};
+
+type ReadingSession = {
+  id: string;
+  book_title: string;
+  total_chapters: number;
+  is_active: boolean;
+  progress: ProgressRow[];
+};
+
 type Membership = {
   group_id: string;
   groups: {
     id: string;
     name: string;
     invite_code: string;
+    reading_sessions: ReadingSession[];
   };
 };
 
@@ -17,6 +31,7 @@ export default function DashboardPage() {
   const supabase = createClient();
 
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,6 +45,8 @@ export default function DashboardPage() {
         return;
       }
 
+      setCurrentUserId(user.id);
+
       const { data, error } = await supabase
         .from("group_members")
         .select(`
@@ -37,7 +54,17 @@ export default function DashboardPage() {
           groups (
             id,
             name,
-            invite_code
+            invite_code,
+            reading_sessions (
+              id,
+              book_title,
+              total_chapters,
+              is_active,
+              progress (
+                user_id,
+                chapter_completed
+              )
+            )
           )
         `)
         .eq("user_id", user.id);
@@ -58,10 +85,7 @@ export default function DashboardPage() {
     const confirmed = window.confirm("Delete this group?");
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from("groups")
-      .delete()
-      .eq("id", groupId);
+    const { error } = await supabase.from("groups").delete().eq("id", groupId);
 
     if (error) {
       console.error(error);
@@ -74,63 +98,98 @@ export default function DashboardPage() {
     );
   }
 
+  function getActiveSession(membership: Membership) {
+    return membership.groups.reading_sessions.find(
+      (session) => session.is_active
+    );
+  }
+
+  function getMyProgress(session: ReadingSession | undefined) {
+    if (!session || !currentUserId) return 0;
+
+    return (
+      session.progress.find((row) => row.user_id === currentUserId)
+        ?.chapter_completed ?? 0
+    );
+  }
+
   return (
     <main className="min-h-screen p-6">
-      <h1 className="mb-6 text-3xl font-bold">Dashboard</h1>
+      <div className="mx-auto max-w-xl">
+        <h1 className="mb-6 text-3xl font-bold">All Groups</h1>
 
-      <section className="mb-6 rounded-xl border p-4">
-        <h2 className="text-xl font-semibold">Your Groups</h2>
+        <div className="mb-6 flex gap-3">
+          <Link
+            href="/create-group"
+            className="rounded-lg bg-black px-4 py-2 text-white"
+          >
+            Create Group
+          </Link>
 
-        <div className="mt-4 space-y-3">
+          <Link href="/join-group" className="rounded-lg border px-4 py-2">
+            Join Group
+          </Link>
+        </div>
+
+        <section>
           {loading ? (
             <p className="text-gray-600">Loading groups...</p>
           ) : memberships.length > 0 ? (
-            memberships.map((membership) => (
-              <div
-                key={membership.group_id}
-                className="rounded-lg border p-3"
-              >
-                <Link
-                  href={`/group/${membership.groups.id}`}
-                  className="block"
-                >
-                  <p className="font-semibold">
-                    {membership.groups.name}
-                  </p>
+            <div className="divide-y">
+              {memberships.map((membership) => {
+                const session = getActiveSession(membership);
+                const myProgress = getMyProgress(session);
+                const percent = session
+                  ? (myProgress / session.total_chapters) * 100
+                  : 0;
 
-                  <p className="text-sm text-gray-600">
-                    Invite Code: {membership.groups.invite_code}
-                  </p>
-                </Link>
+                return (
+                  <div key={membership.group_id} className="py-5">
+                    <Link
+                      href={`/group/${membership.groups.id}`}
+                      className="block"
+                    >
+                      <h2 className="text-xl font-semibold">
+                        {membership.groups.name}
+                      </h2>
 
-                <button
-                  onClick={() => deleteGroup(membership.groups.id)}
-                  className="mt-3 rounded-lg border px-3 py-1 text-sm hover:bg-gray-100"
-                >
-                  Delete
-                </button>
-              </div>
-            ))
+                      {session ? (
+                        <div className="mt-3">
+                          <p className="font-medium">📖 {session.book_title}</p>
+
+                          <div className="mt-3 h-2 rounded-full bg-gray-200">
+                            <div
+                              className="h-2 rounded-full bg-black"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+
+                          <p className="mt-2 text-sm text-gray-600">
+                            Your progress: {myProgress} /{" "}
+                            {session.total_chapters}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm text-gray-600">
+                          No active book
+                        </p>
+                      )}
+                    </Link>
+
+                    <button
+                      onClick={() => deleteGroup(membership.groups.id)}
+                      className="mt-3 text-sm text-gray-500 underline"
+                    >
+                      Delete Group
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <p className="text-gray-600">No groups yet.</p>
           )}
-        </div>
-      </section>
-
-      <div className="flex gap-3">
-        <Link
-          href="/create-group"
-          className="rounded-lg bg-black px-4 py-2 text-white"
-        >
-          Create Group
-        </Link>
-
-        <Link
-          href="/join-group"
-          className="rounded-lg border px-4 py-2"
-        >
-          Join Group
-        </Link>
+        </section>
       </div>
     </main>
   );
