@@ -203,9 +203,11 @@ export default function GroupPage() {
 
         <CurrentBook
           groupId={group.id}
+          members={group.group_members}
           currentSession={currentSession}
           myProgress={myProgress}
           message={message}
+          getMemberProgress={getMemberProgress}
           onCompleteChapter={completeNextChapter}
           onDeleteBook={deleteCurrentBook}
         />

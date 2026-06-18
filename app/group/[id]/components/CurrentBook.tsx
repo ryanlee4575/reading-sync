@@ -1,20 +1,24 @@
 import Link from "next/link";
-import type { ReadingSession } from "../types";
+import type { ReadingSession, Member } from "../types";
 
 type CurrentBookProps = {
   groupId: string;
+  members: Member[];
   currentSession: ReadingSession | undefined;
   myProgress: number;
   message: string;
+  getMemberProgress: (userId: string) => number;
   onCompleteChapter: () => void;
   onDeleteBook: () => void;
 };
 
 export default function CurrentBook({
   groupId,
+  members,
   currentSession,
   myProgress,
   message,
+  getMemberProgress,
   onCompleteChapter,
   onDeleteBook,
 }: CurrentBookProps) {
@@ -33,8 +37,13 @@ export default function CurrentBook({
     );
   }
 
-  const percent = (myProgress / currentSession.total_chapters) * 100;
   const isFinished = myProgress >= currentSession.total_chapters;
+
+  const everyoneFinished = members.every(
+    (member) => getMemberProgress(member.user_id) >= currentSession.total_chapters
+  );
+
+  const percent = (myProgress / currentSession.total_chapters) * 100;
 
   return (
     <section className="border-b py-8">
@@ -44,36 +53,52 @@ export default function CurrentBook({
         📖 {currentSession.book_title}
       </h2>
 
-      <div className="mt-6">
-        <div className="mb-2 flex justify-between text-sm">
-          <span>Your progress</span>
-          <span>
-            {myProgress} / {currentSession.total_chapters}
-          </span>
+      {everyoneFinished ? (
+        <div className="mt-6">
+          <p className="text-lg font-semibold">🎉 Everyone finished this book.</p>
+          <p className="mt-2 text-gray-600">Ready to start the next one.</p>
+
+          <button
+            onClick={onDeleteBook}
+            className="mt-5 w-full rounded-lg bg-black py-3 text-white"
+          >
+            Start New Book
+          </button>
         </div>
+      ) : (
+        <>
+          <div className="mt-6">
+            <div className="mb-2 flex justify-between text-sm">
+              <span>Your progress</span>
+              <span>
+                {myProgress} / {currentSession.total_chapters}
+              </span>
+            </div>
 
-        <div className="h-2 rounded-full bg-gray-200">
-          <div
-            className="h-2 rounded-full bg-black"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-      </div>
+            <div className="h-2 rounded-full bg-gray-200">
+              <div
+                className="h-2 rounded-full bg-black"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
 
-      <button
-        onClick={onCompleteChapter}
-        disabled={isFinished}
-        className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300"
-      >
-        {isFinished ? "Book Finished" : "Complete Next Chapter"}
-      </button>
+          <button
+            onClick={onCompleteChapter}
+            disabled={isFinished}
+            className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300"
+          >
+            {isFinished ? "Waiting for everyone else" : "Complete Next Chapter"}
+          </button>
 
-      <button
-        onClick={onDeleteBook}
-        className="mt-3 text-sm text-gray-500 underline"
-      >
-        Delete / Replace Book
-      </button>
+          <button
+            onClick={onDeleteBook}
+            className="mt-3 text-sm text-gray-500 underline"
+          >
+            Delete / Replace Book
+          </button>
+        </>
+      )}
 
       {message && <p className="mt-3 text-sm text-red-600">{message}</p>}
     </section>
