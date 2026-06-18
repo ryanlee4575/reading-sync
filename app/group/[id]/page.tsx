@@ -1,36 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 
-type Member = {
-  user_id: string;
-  display_name: string;
-};
-
-type ProgressRow = {
-  user_id: string;
-  chapter_completed: number;
-};
-
-type ReadingSession = {
-  id: string;
-  book_title: string;
-  total_chapters: number;
-  created_at: string;
-  is_active: boolean;
-  progress: ProgressRow[];
-};
-
-type Group = {
-  id: string;
-  name: string;
-  invite_code: string;
-  group_members: Member[];
-  reading_sessions: ReadingSession[];
-};
+import type { Group } from "./types";
+import GroupHeader from "./components/GroupHeader";
+import CurrentBook from "./components/CurrentBook";
+import ProgressList from "./components/ProgressList";
 
 export default function GroupPage() {
   const supabase = createClient();
@@ -167,82 +144,22 @@ export default function GroupPage() {
 
   return (
     <main className="min-h-screen p-6">
-      <h1 className="text-3xl font-bold">{group.name}</h1>
+      <GroupHeader name={group.name} inviteCode={group.invite_code} />
 
-      <p className="mt-2 text-gray-600">
-        Invite Code:{" "}
-        <span className="font-mono font-bold">{group.invite_code}</span>
-      </p>
+      <CurrentBook
+        groupId={group.id}
+        currentSession={currentSession}
+        myProgress={myProgress}
+        message={message}
+        onCompleteChapter={completeNextChapter}
+        onDeleteBook={deleteCurrentBook}
+      />
 
-      <section className="mt-8 rounded-xl border p-4">
-        <h2 className="text-xl font-semibold">Current Book</h2>
-
-        {currentSession ? (
-          <div className="mt-2">
-            <p className="font-semibold">{currentSession.book_title}</p>
-            <p className="text-gray-600">
-              {currentSession.total_chapters} chapters total
-            </p>
-
-            <button
-              onClick={completeNextChapter}
-              className="mt-4 rounded-lg bg-black px-4 py-2 text-white"
-            >
-              Complete Next Chapter
-            </button>
-
-            <button
-              onClick={deleteCurrentBook}
-              className="mt-3 block rounded-lg border px-4 py-2 text-sm text-red-600"
-            >
-              Delete / Replace Book
-            </button>
-
-            <p className="mt-2 text-sm text-gray-600">
-              Your progress: {myProgress} / {currentSession.total_chapters}
-            </p>
-
-            {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
-          </div>
-        ) : (
-          <div className="mt-2">
-            <p className="text-gray-600">No reading session yet.</p>
-
-            <Link
-              href={`/group/${group.id}/create-session`}
-              className="mt-4 inline-block rounded-lg bg-black px-4 py-2 text-white"
-            >
-              Start Reading
-            </Link>
-
-            {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
-          </div>
-        )}
-      </section>
-
-      <section className="mt-8 rounded-xl border p-4">
-        <h2 className="text-xl font-semibold">Progress</h2>
-
-        <div className="mt-4 space-y-2">
-          {group.group_members.map((member) => (
-            <div
-              key={member.user_id}
-              className="flex items-center justify-between rounded-lg border p-3"
-            >
-              <span>{member.display_name}</span>
-
-              {currentSession ? (
-                <span className="text-gray-600">
-                  {getMemberProgress(member.user_id)} /{" "}
-                  {currentSession.total_chapters}
-                </span>
-              ) : (
-                <span className="text-gray-600">No book</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
+      <ProgressList
+        members={group.group_members}
+        currentSession={currentSession}
+        getMemberProgress={getMemberProgress}
+      />
     </main>
   );
 }
