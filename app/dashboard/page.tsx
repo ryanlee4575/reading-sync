@@ -72,7 +72,7 @@ export default function DashboardPage() {
       if (error) {
         console.error(error);
       } else {
-        setMemberships((data as Membership[]) ?? []);
+        setMemberships((data as unknown as Membership[]) ?? []);
       }
 
       setLoading(false);
