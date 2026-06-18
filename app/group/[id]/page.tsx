@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 
@@ -8,11 +9,19 @@ type Member = {
   display_name: string;
 };
 
+type ReadingSession = {
+  id: string;
+  book_title: string;
+  total_chapters: number;
+  created_at: string;
+};
+
 type Group = {
   id: string;
   name: string;
   invite_code: string;
   group_members: Member[];
+  reading_sessions: ReadingSession[];
 };
 
 export default function GroupPage() {
@@ -25,8 +34,6 @@ export default function GroupPage() {
 
   useEffect(() => {
     async function loadGroup() {
-      setLoading(true);
-
       const { data, error } = await supabase
         .from("groups")
         .select(`
@@ -35,6 +42,12 @@ export default function GroupPage() {
           invite_code,
           group_members (
             display_name
+          ),
+          reading_sessions (
+            id,
+            book_title,
+            total_chapters,
+            created_at
           )
         `)
         .eq("id", groupId)
@@ -51,53 +64,58 @@ export default function GroupPage() {
     }
 
     loadGroup();
-  }, [groupId, supabase]);
+  }, [groupId]);
 
   if (loading) {
-    return (
-      <main className="min-h-screen p-6">
-        <h1 className="text-3xl font-bold">Loading...</h1>
-      </main>
-    );
+    return <main className="min-h-screen p-6">Loading...</main>;
   }
 
   if (!group) {
-    return (
-      <main className="min-h-screen p-6">
-        <h1 className="text-3xl font-bold">Group not found</h1>
-        <p className="mt-2 text-gray-600">
-          You may not have access to this group.
-        </p>
-      </main>
-    );
+    return <main className="min-h-screen p-6">Group not found.</main>;
   }
+
+  const currentSession = group.reading_sessions[0];
 
   return (
     <main className="min-h-screen p-6">
       <h1 className="text-3xl font-bold">{group.name}</h1>
 
       <p className="mt-2 text-gray-600">
-        Invite Code:{" "}
-        <span className="font-mono font-bold">{group.invite_code}</span>
+        Invite Code: <span className="font-mono font-bold">{group.invite_code}</span>
       </p>
+
+      <section className="mt-8 rounded-xl border p-4">
+        <h2 className="text-xl font-semibold">Current Book</h2>
+
+        {currentSession ? (
+          <div className="mt-2">
+            <p className="font-semibold">{currentSession.book_title}</p>
+            <p className="text-gray-600">
+              0 / {currentSession.total_chapters} chapters
+            </p>
+          </div>
+        ) : (
+          <div className="mt-2">
+            <p className="text-gray-600">No reading session yet.</p>
+
+            <Link
+              href={`/group/${group.id}/create-session`}
+              className="mt-4 inline-block rounded-lg bg-black px-4 py-2 text-white"
+            >
+              Start Reading
+            </Link>
+          </div>
+        )}
+      </section>
 
       <section className="mt-8 rounded-xl border p-4">
         <h2 className="text-xl font-semibold">Members</h2>
 
         <div className="mt-4 space-y-2">
-          {group.group_members.length > 0 ? (
-            group.group_members.map((member) => (
-              <p key={member.display_name}>{member.display_name}</p>
-            ))
-          ) : (
-            <p className="text-gray-600">No members yet.</p>
-          )}
+          {group.group_members.map((member) => (
+            <p key={member.display_name}>{member.display_name}</p>
+          ))}
         </div>
-      </section>
-
-      <section className="mt-8 rounded-xl border p-4">
-        <h2 className="text-xl font-semibold">Current Book</h2>
-        <p className="mt-2 text-gray-600">No reading session yet.</p>
       </section>
     </main>
   );
