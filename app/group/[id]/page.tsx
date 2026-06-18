@@ -63,6 +63,57 @@ export default function GroupPage() {
 
   useEffect(() => {
     loadGroup();
+
+    const progressChannel = supabase
+      .channel(`progress-${groupId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "progress",
+        },
+        () => {
+          loadGroup();
+        }
+      )
+      .subscribe();
+
+    const sessionChannel = supabase
+      .channel(`session-${groupId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "reading_sessions",
+        },
+        () => {
+          loadGroup();
+        }
+      )
+      .subscribe();
+
+    const memberChannel = supabase
+      .channel(`members-${groupId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "group_members",
+        },
+        () => {
+          loadGroup();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(progressChannel);
+      supabase.removeChannel(sessionChannel);
+      supabase.removeChannel(memberChannel);
+    };
   }, [groupId]);
 
   const currentSession = group?.reading_sessions.find(
