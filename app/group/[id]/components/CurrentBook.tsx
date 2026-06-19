@@ -49,17 +49,24 @@ export default function CurrentBook({
 
   const percent = (myProgress / currentSession.total_chapters) * 100;
 
-  const nextChapter = Math.min(
-    myProgress + 1,
+  const lowestProgress =
+    members.length > 0
+      ? Math.min(...members.map((member) => getMemberProgress(member.user_id)))
+      : 0;
+
+  const groupNextChapter = Math.min(
+    lowestProgress + 1,
     currentSession.total_chapters
   );
 
+  const readyThreshold = groupNextChapter - 1;
+
   const readyMembers = members.filter(
-    (member) => getMemberProgress(member.user_id) >= nextChapter
+    (member) => getMemberProgress(member.user_id) >= readyThreshold
   );
 
   const waitingMembers = members.filter(
-    (member) => getMemberProgress(member.user_id) < nextChapter
+    (member) => getMemberProgress(member.user_id) < readyThreshold
   );
 
   return (
@@ -115,7 +122,7 @@ export default function CurrentBook({
 
           <div className="mt-4 rounded-xl border p-4">
             <p className="text-sm font-semibold">
-              Ready for Chapter {nextChapter}
+              Ready for Chapter {groupNextChapter}
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2">
