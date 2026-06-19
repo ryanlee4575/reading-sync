@@ -49,6 +49,19 @@ export default function CurrentBook({
 
   const percent = (myProgress / currentSession.total_chapters) * 100;
 
+  const nextChapter = Math.min(
+    myProgress + 1,
+    currentSession.total_chapters
+  );
+
+  const readyMembers = members.filter(
+    (member) => getMemberProgress(member.user_id) >= nextChapter
+  );
+
+  const waitingMembers = members.filter(
+    (member) => getMemberProgress(member.user_id) < nextChapter
+  );
+
   return (
     <section className="border-b py-8">
       <div className="flex gap-4">
@@ -98,6 +111,43 @@ export default function CurrentBook({
                 style={{ width: `${percent}%` }}
               />
             </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border p-4">
+            <p className="text-sm font-semibold">
+              Ready for Chapter {nextChapter}
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {readyMembers.map((member) => (
+                <div
+                  key={member.user_id}
+                  className="rounded-full bg-black px-3 py-1 text-sm text-white"
+                >
+                  ● {member.display_name}
+                </div>
+              ))}
+
+              {waitingMembers.map((member) => (
+                <div
+                  key={member.user_id}
+                  className="rounded-full border px-3 py-1 text-sm text-gray-500"
+                >
+                  ○ {member.display_name}
+                </div>
+              ))}
+            </div>
+
+            {waitingMembers.length === 0 ? (
+              <p className="mt-3 text-sm text-green-600">
+                🎉 Everyone is ready!
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-gray-500">
+                Waiting on {waitingMembers.length}{" "}
+                {waitingMembers.length === 1 ? "reader" : "readers"}.
+              </p>
+            )}
           </div>
 
           <button
