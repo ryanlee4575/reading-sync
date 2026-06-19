@@ -4,6 +4,10 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
+type ActiveSession = {
+  id: string;
+};
+
 export default function JoinGroupPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -13,7 +17,7 @@ export default function JoinGroupPage() {
   const [message, setMessage] = useState("");
 
   async function joinGroup() {
-    if (!inviteCode || !displayName) {
+    if (!inviteCode.trim() || !displayName.trim()) {
       setMessage("Enter an invite code and display name.");
       return;
     }
@@ -33,7 +37,7 @@ export default function JoinGroupPage() {
     const { data: group, error: groupError } = await supabase
       .from("groups")
       .select("id, name")
-      .eq("invite_code", inviteCode.toUpperCase())
+      .eq("invite_code", inviteCode.trim().toUpperCase())
       .single();
 
     if (groupError || !group) {
@@ -46,12 +50,37 @@ export default function JoinGroupPage() {
       .insert({
         group_id: group.id,
         user_id: user.id,
-        display_name: displayName,
+        display_name: displayName.trim(),
       });
 
     if (memberError) {
       setMessage(memberError.message);
       return;
+    }
+
+    const { data: activeSession, error: sessionError } = await supabase
+      .from("reading_sessions")
+      .select("id")
+      .eq("group_id", group.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (sessionError) {
+      setMessage(sessionError.message);
+      return;
+    }
+
+    if (activeSession) {
+      const { error: progressError } = await supabase.from("progress").insert({
+        reading_session_id: (activeSession as ActiveSession).id,
+        user_id: user.id,
+        chapter_completed: 0,
+      });
+
+      if (progressError) {
+        setMessage(progressError.message);
+        return;
+      }
     }
 
     router.push(`/group/${group.id}`);
