@@ -14,6 +14,7 @@ export type ReadingSession = {
   total_chapters: number;
   created_at: string;
   is_active: boolean;
+  cover_url: string | null;
   progress: ProgressRow[];
 };
 

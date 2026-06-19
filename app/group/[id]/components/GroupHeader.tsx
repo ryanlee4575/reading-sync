@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 type GroupHeaderProps = {
   name: string;
   inviteCode: string;
@@ -9,19 +13,51 @@ export default function GroupHeader({
   inviteCode,
   onCopyInvite,
 }: GroupHeaderProps) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+
+    const timer = setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  function handleCopy() {
+    onCopyInvite();
+    setCopied(true);
+  }
+
   return (
-    <header className="border-b pb-6">
-      <p className="text-sm text-gray-500">Book Club</p>
+    <section className="border-b pb-8">
+      <h1 className="text-4xl font-bold">{name}</h1>
 
-      <h1 className="mt-1 text-3xl font-semibold">{name}</h1>
+      <div className="mt-8">
+        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+          Invite Code
+        </p>
 
-      <div className="mt-4 flex items-center gap-3 text-sm">
-        <span className="font-mono">{inviteCode}</span>
+        <div className="mt-2 flex items-center justify-between rounded-xl border p-4">
+          <span className="font-mono text-3xl font-bold tracking-[0.25em]">
+            {inviteCode}
+          </span>
 
-        <button onClick={onCopyInvite} className="underline">
-          Copy
-        </button>
+          <button
+            onClick={handleCopy}
+            className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors ${
+              copied ? "bg-green-600" : "bg-black hover:bg-gray-800"
+            }`}
+          >
+            {copied ? "✓ Copied" : "Copy"}
+          </button>
+        </div>
+
+        <p className="mt-3 text-sm text-gray-500">
+          Share this code with anyone you'd like to invite to this group.
+        </p>
       </div>
-    </header>
+    </section>
   );
 }

@@ -16,6 +16,7 @@ type ReadingSession = {
   book_title: string;
   total_chapters: number;
   is_active: boolean;
+  cover_url: string | null;
   progress: ProgressRow[];
 };
 
@@ -65,6 +66,7 @@ export default function DashboardPage() {
               book_title,
               total_chapters,
               is_active,
+              cover_url,
               progress (
                 user_id,
                 chapter_completed

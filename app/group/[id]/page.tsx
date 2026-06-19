@@ -50,6 +50,7 @@ export default function GroupPage() {
           total_chapters,
           created_at,
           is_active,
+          cover_url,
           progress (
             user_id,
             chapter_completed
@@ -244,8 +245,7 @@ export default function GroupPage() {
           name={group.name}
           inviteCode={group.invite_code}
           onCopyInvite={() => {
-            navigator.clipboard.writeText(group.invite_code);
-            setMessage("Invite code copied.");
+            navigator.clipboard.writeText(group.invite_code);										
           }}
         />
 

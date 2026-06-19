@@ -9,6 +9,14 @@ type Member = {
   user_id: string;
 };
 
+type BookResult = {
+  key: string;
+  title: string;
+  author_name?: string[];
+  cover_i?: number;
+  number_of_pages_median?: number;
+};
+
 export default function CreateSessionPage() {
   const supabase = createClient();
   const params = useParams();
@@ -18,7 +26,40 @@ export default function CreateSessionPage() {
 
   const [bookTitle, setBookTitle] = useState("");
   const [totalChapters, setTotalChapters] = useState("");
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [results, setResults] = useState<BookResult[]>([]);
   const [message, setMessage] = useState("");
+
+  async function searchBooks() {
+    if (!bookTitle.trim()) {
+      setMessage("Enter a book title first.");
+      return;
+    }
+
+    setMessage("Searching books...");
+
+    const response = await fetch(
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(
+        bookTitle.trim()
+      )}&limit=5`
+    );
+
+    const data = await response.json();
+    setResults(data.docs ?? []);
+    setMessage("");
+  }
+
+  function selectBook(book: BookResult) {
+    setBookTitle(book.title);
+
+    if (book.cover_i) {
+      setCoverUrl(`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`);
+    } else {
+      setCoverUrl(null);
+    }
+
+    setResults([]);
+  }
 
   async function createSession() {
     if (!bookTitle.trim() || !totalChapters) {
@@ -51,6 +92,7 @@ export default function CreateSessionPage() {
         group_id: groupId,
         book_title: bookTitle.trim(),
         total_chapters: chapterCount,
+        cover_url: coverUrl,
         created_by: user.id,
         is_active: true,
       })
@@ -107,13 +149,70 @@ export default function CreateSessionPage() {
           <h1 className="mb-6 text-3xl font-bold">Start Reading</h1>
 
           <div className="space-y-4">
-            <input
-              type="text"
-              placeholder="Book title"
-              value={bookTitle}
-              onChange={(e) => setBookTitle(e.target.value)}
-              className="w-full rounded-lg border p-3"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Book title"
+                value={bookTitle}
+                onChange={(e) => setBookTitle(e.target.value)}
+                className="w-full rounded-lg border p-3"
+              />
+
+              <button
+                onClick={searchBooks}
+                className="rounded-lg border px-3 text-sm"
+              >
+                Search
+              </button>
+            </div>
+
+            {results.length > 0 && (
+              <div className="space-y-2 rounded-lg border p-2">
+                {results.map((book) => {
+                  const bookCoverUrl = book.cover_i
+                    ? `https://covers.openlibrary.org/b/id/${book.cover_i}-S.jpg`
+                    : null;
+
+                  return (
+                    <button
+                      key={book.key}
+                      onClick={() => selectBook(book)}
+                      className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-gray-100"
+                    >
+                      {bookCoverUrl ? (
+                        <img
+                          src={bookCoverUrl}
+                          alt={book.title}
+                          className="h-14 w-10 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-14 w-10 items-center justify-center rounded bg-gray-100 text-xs text-gray-500">
+                          No cover
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="font-medium">{book.title}</p>
+                        <p className="text-sm text-gray-500">
+                          {book.author_name?.[0] ?? "Unknown author"}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {coverUrl && (
+              <div className="flex items-center gap-3 rounded-lg border p-3">
+                <img
+                  src={coverUrl}
+                  alt={bookTitle}
+                  className="h-20 w-14 rounded object-cover"
+                />
+                <p className="text-sm text-gray-600">Cover selected</p>
+              </div>
+            )}
 
             <input
               type="number"

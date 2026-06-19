@@ -51,11 +51,22 @@ export default function CurrentBook({
 
   return (
     <section className="border-b py-8">
-      <p className="text-sm text-gray-500">Current Book</p>
+      <div className="flex gap-4">
+        {currentSession.cover_url && (
+          <img
+            src={currentSession.cover_url}
+            alt={currentSession.book_title}
+            className="h-28 w-20 rounded object-cover"
+          />
+        )}
 
-      <h2 className="mt-1 text-2xl font-semibold">
-        📖 {currentSession.book_title}
-      </h2>
+        <div>
+          <p className="text-sm text-gray-500">Current Book</p>
+          <h2 className="mt-1 text-2xl font-semibold">
+            {currentSession.book_title}
+          </h2>
+        </div>
+      </div>
 
       {everyoneFinished ? (
         <div className="mt-6">
