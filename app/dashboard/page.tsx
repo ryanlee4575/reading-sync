@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import LogoutButton from "@/components/LogoutButton";
 
 type ProgressRow = {
   user_id: string;
@@ -29,6 +31,7 @@ type Membership = {
 
 export default function DashboardPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -41,7 +44,7 @@ export default function DashboardPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setLoading(false);
+        router.push("/login");
         return;
       }
 
@@ -79,7 +82,7 @@ export default function DashboardPage() {
     }
 
     loadGroups();
-  }, []);
+  }, [router, supabase]);
 
   async function deleteGroup(groupId: string) {
     const confirmed = window.confirm("Delete this group?");
@@ -116,7 +119,10 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen p-6">
       <div className="mx-auto max-w-xl">
-        <h1 className="mb-6 text-3xl font-bold">All Groups</h1>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold">All Groups</h1>
+          <LogoutButton />
+        </div>
 
         <div className="mb-6 flex gap-3">
           <Link

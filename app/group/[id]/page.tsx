@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import LogoutButton from "@/components/LogoutButton";
 
 import type { Group } from "./types";
 import GroupHeader from "./components/GroupHeader";
@@ -13,6 +14,7 @@ import ProgressList from "./components/ProgressList";
 export default function GroupPage() {
   const supabase = createClient();
   const params = useParams();
+  const router = useRouter();
   const groupId = params.id as string;
 
   const [group, setGroup] = useState<Group | null>(null);
@@ -25,7 +27,12 @@ export default function GroupPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    setCurrentUserId(user?.id ?? null);
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    setCurrentUserId(user.id);
 
     const { data, error } = await supabase
       .from("groups")
@@ -97,7 +104,7 @@ export default function GroupPage() {
       supabase.removeChannel(sessionChannel);
       supabase.removeChannel(memberChannel);
     };
-  }, [groupId]);
+  }, [groupId, router]);
 
   const currentSession = group?.reading_sessions.find(
     (session) => session.is_active
@@ -222,12 +229,16 @@ export default function GroupPage() {
   return (
     <main className="min-h-screen p-6">
       <div className="mx-auto max-w-xl space-y-8">
-        <Link
-          href="/dashboard"
-          className="inline-flex text-sm text-gray-500 hover:text-black"
-        >
-          ← All Groups
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link
+            href="/dashboard"
+            className="inline-flex text-sm text-gray-500 hover:text-black"
+          >
+            ← All Groups
+          </Link>
+
+          <LogoutButton />
+        </div>
 
         <GroupHeader
           name={group.name}
