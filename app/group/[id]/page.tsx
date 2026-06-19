@@ -48,6 +48,7 @@ export default function GroupPage() {
           id,
           book_title,
           total_chapters,
+          progress_type,
           created_at,
           is_active,
           cover_url,
@@ -121,21 +122,19 @@ export default function GroupPage() {
     return row?.chapter_completed ?? 0;
   }
 
-  async function completeNextChapter() {
+  async function setProgress(value: number) {
     if (!currentSession || !currentUserId) return;
 
-    const currentProgress = getMemberProgress(currentUserId);
-
-    if (currentProgress >= currentSession.total_chapters) {
-      setMessage("You already finished the book.");
-      return;
-    }
+    const safeValue = Math.max(
+      0,
+      Math.min(value, currentSession.total_chapters)
+    );
 
     const { error } = await supabase.from("progress").upsert(
       {
         reading_session_id: currentSession.id,
         user_id: currentUserId,
-        chapter_completed: currentProgress + 1,
+        chapter_completed: safeValue,
         last_completed_at: new Date().toISOString(),
       },
       {
@@ -153,36 +152,30 @@ export default function GroupPage() {
     await loadGroup();
   }
 
+  async function completeNextChapter() {
+    if (!currentSession || !currentUserId) return;
+
+    const currentProgress = getMemberProgress(currentUserId);
+
+    if (currentProgress >= currentSession.total_chapters) {
+      setMessage("You already finished the book.");
+      return;
+    }
+
+    await setProgress(currentProgress + 1);
+  }
+
   async function undoLastChapter() {
     if (!currentSession || !currentUserId) return;
 
     const currentProgress = getMemberProgress(currentUserId);
 
     if (currentProgress <= 0) {
-      setMessage("You are already at chapter 0.");
+      setMessage("You are already at 0.");
       return;
     }
 
-    const { error } = await supabase.from("progress").upsert(
-      {
-        reading_session_id: currentSession.id,
-        user_id: currentUserId,
-        chapter_completed: currentProgress - 1,
-        last_completed_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "reading_session_id,user_id",
-      }
-    );
-
-    if (error) {
-      console.error(error);
-      setMessage(error.message);
-      return;
-    }
-
-    setMessage("");
-    await loadGroup();
+    await setProgress(currentProgress - 1);
   }
 
   async function deleteCurrentBook() {
@@ -245,7 +238,7 @@ export default function GroupPage() {
           name={group.name}
           inviteCode={group.invite_code}
           onCopyInvite={() => {
-            navigator.clipboard.writeText(group.invite_code);										
+            navigator.clipboard.writeText(group.invite_code);
           }}
         />
 
@@ -258,6 +251,7 @@ export default function GroupPage() {
           getMemberProgress={getMemberProgress}
           onCompleteChapter={completeNextChapter}
           onUndoChapter={undoLastChapter}
+          onSetProgress={setProgress}
           onDeleteBook={deleteCurrentBook}
         />
 

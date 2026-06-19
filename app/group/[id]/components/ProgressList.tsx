@@ -6,11 +6,20 @@ type ProgressListProps = {
   getMemberProgress: (userId: string) => number;
 };
 
+function getProgressLabel(progressType: string | undefined) {
+  if (progressType === "pages") return "pages";
+  if (progressType === "milestones") return "milestones";
+  if (progressType === "sections") return "sections";
+  return "chapters";
+}
+
 export default function ProgressList({
   members,
   currentSession,
   getMemberProgress,
 }: ProgressListProps) {
+  const progressLabel = getProgressLabel(currentSession?.progress_type);
+
   return (
     <section className="py-8">
       <h2 className="text-xl font-semibold">Everyone</h2>
@@ -28,7 +37,7 @@ export default function ProgressList({
 
                 {currentSession ? (
                   <span className="text-gray-500">
-                    {progress} / {total}
+                    {progress} / {total} {progressLabel}
                   </span>
                 ) : (
                   <span className="text-gray-500">No book</span>

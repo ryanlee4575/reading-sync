@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ReadingSession, Member } from "../types";
 
@@ -10,8 +13,27 @@ type CurrentBookProps = {
   getMemberProgress: (userId: string) => number;
   onCompleteChapter: () => void;
   onUndoChapter: () => void;
+  onSetProgress: (value: number) => void;
   onDeleteBook: () => void;
 };
+
+function getProgressNoun(progressType: string | undefined) {
+  if (progressType === "pages") return "page";
+  if (progressType === "milestones") return "milestone";
+  if (progressType === "sections") return "section";
+  return "chapter";
+}
+
+function getProgressNounPlural(progressType: string | undefined) {
+  if (progressType === "pages") return "pages";
+  if (progressType === "milestones") return "milestones";
+  if (progressType === "sections") return "sections";
+  return "chapters";
+}
+
+function capitalize(word: string) {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
 
 export default function CurrentBook({
   groupId,
@@ -22,8 +44,15 @@ export default function CurrentBook({
   getMemberProgress,
   onCompleteChapter,
   onUndoChapter,
+  onSetProgress,
   onDeleteBook,
 }: CurrentBookProps) {
+  const [sliderValue, setSliderValue] = useState(myProgress);
+
+  useEffect(() => {
+    setSliderValue(myProgress);
+  }, [myProgress]);
+
   if (!currentSession) {
     return (
       <section className="border-b py-8">
@@ -38,6 +67,10 @@ export default function CurrentBook({
       </section>
     );
   }
+
+  const noun = getProgressNoun(currentSession.progress_type);
+  const pluralNoun = getProgressNounPlural(currentSession.progress_type);
+  const isPageMode = currentSession.progress_type === "pages";
 
   const isFinished = myProgress >= currentSession.total_chapters;
   const canUndo = myProgress > 0;
@@ -54,12 +87,12 @@ export default function CurrentBook({
       ? Math.min(...members.map((member) => getMemberProgress(member.user_id)))
       : 0;
 
-  const groupNextChapter = Math.min(
+  const groupNextProgress = Math.min(
     lowestProgress + 1,
     currentSession.total_chapters
   );
 
-  const readyThreshold = groupNextChapter - 1;
+  const readyThreshold = groupNextProgress - 1;
 
   const readyMembers = members.filter(
     (member) => getMemberProgress(member.user_id) >= readyThreshold
@@ -108,7 +141,7 @@ export default function CurrentBook({
             <div className="mb-2 flex justify-between text-sm">
               <span>Your progress</span>
               <span>
-                {myProgress} / {currentSession.total_chapters}
+                {myProgress} / {currentSession.total_chapters} {pluralNoun}
               </span>
             </div>
 
@@ -122,7 +155,7 @@ export default function CurrentBook({
 
           <div className="mt-4 rounded-xl border p-4">
             <p className="text-sm font-semibold">
-              Ready for Chapter {groupNextChapter}
+              Ready for {capitalize(noun)} {groupNextProgress}
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -157,21 +190,74 @@ export default function CurrentBook({
             )}
           </div>
 
-          <button
-            onClick={onCompleteChapter}
-            disabled={isFinished}
-            className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300"
-          >
-            {isFinished ? "Waiting for everyone else" : "Complete Next Chapter"}
-          </button>
+          {isPageMode ? (
+            <div className="mt-6 rounded-xl border p-4">
+              <p className="text-sm font-semibold">Update your page</p>
 
-          <button
-            onClick={onUndoChapter}
-            disabled={!canUndo}
-            className="mt-3 w-full rounded-lg border py-3 text-sm disabled:text-gray-300"
-          >
-            Undo Last Chapter
-          </button>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={() => setSliderValue(Math.max(0, sliderValue - 1))}
+                  className="rounded-lg border px-4 py-3 text-lg"
+                >
+                  -
+                </button>
+
+                <input
+                  type="number"
+                  min="0"
+                  max={currentSession.total_chapters}
+                  value={sliderValue}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setSliderValue(value);
+                  }}
+                  className="w-full rounded-lg border p-3 text-center text-lg font-semibold"
+                />
+
+                <button
+                  onClick={() =>
+                    setSliderValue(
+                      Math.min(currentSession.total_chapters, sliderValue + 1)
+                    )
+                  }
+                  className="rounded-lg border px-4 py-3 text-lg"
+                >
+                  +
+                </button>
+              </div>
+
+              <p className="mt-2 text-center text-sm text-gray-500">
+                Page {sliderValue} / {currentSession.total_chapters}
+              </p>
+
+              <button
+                onClick={() => onSetProgress(sliderValue)}
+                className="mt-4 w-full rounded-lg bg-black py-3 text-white"
+              >
+                Save Progress
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={onCompleteChapter}
+                disabled={isFinished}
+                className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300"
+              >
+                {isFinished
+                  ? "Waiting for everyone else"
+                  : `Complete Next ${capitalize(noun)}`}
+              </button>
+
+              <button
+                onClick={onUndoChapter}
+                disabled={!canUndo}
+                className="mt-3 w-full rounded-lg border py-3 text-sm disabled:text-gray-300"
+              >
+                Undo Last {capitalize(noun)}
+              </button>
+            </>
+          )}
 
           <button
             onClick={onDeleteBook}

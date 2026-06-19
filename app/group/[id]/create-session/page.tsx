@@ -17,6 +17,8 @@ type BookResult = {
   number_of_pages_median?: number;
 };
 
+type ProgressType = "chapters" | "pages" | "milestones" | "sections";
+
 export default function CreateSessionPage() {
   const supabase = createClient();
   const params = useParams();
@@ -26,6 +28,8 @@ export default function CreateSessionPage() {
 
   const [bookTitle, setBookTitle] = useState("");
   const [totalChapters, setTotalChapters] = useState("");
+  const [progressType, setProgressType] = useState<ProgressType>("chapters");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [results, setResults] = useState<BookResult[]>([]);
   const [message, setMessage] = useState("");
@@ -61,16 +65,23 @@ export default function CreateSessionPage() {
     setResults([]);
   }
 
+  function getProgressPlaceholder() {
+    if (progressType === "pages") return "Number of pages";
+    if (progressType === "milestones") return "Number of milestones";
+    if (progressType === "sections") return "Number of sections";
+    return "Number of chapters";
+  }
+
   async function createSession() {
     if (!bookTitle.trim() || !totalChapters) {
-      setMessage("Please enter a book title and chapter count.");
+      setMessage("Please enter a book title and progress count.");
       return;
     }
 
-    const chapterCount = Number(totalChapters);
+    const progressCount = Number(totalChapters);
 
-    if (!Number.isInteger(chapterCount) || chapterCount <= 0) {
-      setMessage("Chapter count must be a positive whole number.");
+    if (!Number.isInteger(progressCount) || progressCount <= 0) {
+      setMessage("Progress count must be a positive whole number.");
       return;
     }
 
@@ -91,7 +102,8 @@ export default function CreateSessionPage() {
       .insert({
         group_id: groupId,
         book_title: bookTitle.trim(),
-        total_chapters: chapterCount,
+        total_chapters: progressCount,
+        progress_type: progressType,
         cover_url: coverUrl,
         created_by: user.id,
         is_active: true,
@@ -214,9 +226,71 @@ export default function CreateSessionPage() {
               </div>
             )}
 
+            <div className="rounded-lg border p-4">
+              <p className="mb-3 font-medium">
+                How do you want to track progress?
+              </p>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={progressType === "chapters"}
+                    onChange={() => {
+                      setProgressType("chapters");
+                      setShowAdvanced(false);
+                    }}
+                  />
+                  <span>Chapters (Recommended)</span>
+                </label>
+
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={progressType === "pages"}
+                    onChange={() => {
+                      setProgressType("pages");
+                      setShowAdvanced(false);
+                    }}
+                  />
+                  <span>Pages</span>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced((prev) => !prev)}
+                  className="text-sm text-gray-500 underline"
+                >
+                  {showAdvanced ? "Hide advanced" : "More options"}
+                </button>
+
+                {showAdvanced && (
+                  <div className="ml-4 space-y-2 border-l pl-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={progressType === "milestones"}
+                        onChange={() => setProgressType("milestones")}
+                      />
+                      <span>Custom milestones</span>
+                    </label>
+
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={progressType === "sections"}
+                        onChange={() => setProgressType("sections")}
+                      />
+                      <span>Custom sections</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <input
               type="number"
-              placeholder="Number of chapters"
+              placeholder={getProgressPlaceholder()}
               value={totalChapters}
               onChange={(e) => setTotalChapters(e.target.value)}
               className="w-full rounded-lg border p-3"
