@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -17,7 +18,7 @@ export default function CreateGroupPage() {
   const [message, setMessage] = useState("");
 
   async function createGroup() {
-    if (!groupName || !displayName) {
+    if (!groupName.trim() || !displayName.trim()) {
       setMessage("Enter a group name and your display name.");
       return;
     }
@@ -39,7 +40,7 @@ export default function CreateGroupPage() {
     const { data: group, error: groupError } = await supabase
       .from("groups")
       .insert({
-        name: groupName,
+        name: groupName.trim(),
         invite_code: inviteCode,
         created_by: user.id,
       })
@@ -56,7 +57,7 @@ export default function CreateGroupPage() {
       .insert({
         group_id: group.id,
         user_id: user.id,
-        display_name: displayName,
+        display_name: displayName.trim(),
       });
 
     if (memberError) {
@@ -68,31 +69,44 @@ export default function CreateGroupPage() {
   }
 
   return (
-    <main className="min-h-screen p-6 flex flex-col items-center justify-center gap-4">
-      <h1 className="text-3xl font-bold">Create Group</h1>
+    <main className="flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <Link
+          href="/dashboard"
+          className="mb-6 inline-flex text-sm text-gray-500 hover:text-black"
+        >
+          ← Dashboard
+        </Link>
 
-      <input
-        placeholder="Group name"
-        className="w-full max-w-sm rounded-lg border p-3"
-        value={groupName}
-        onChange={(e) => setGroupName(e.target.value)}
-      />
+        <div className="flex flex-col gap-4">
+          <h1 className="text-3xl font-bold">Create Group</h1>
 
-      <input
-        placeholder="Your display name"
-        className="w-full max-w-sm rounded-lg border p-3"
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
-      />
+          <input
+            placeholder="Group name"
+            className="w-full rounded-lg border p-3"
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+          />
 
-      <button
-        onClick={createGroup}
-        className="w-full max-w-sm rounded-lg bg-black p-3 text-white"
-      >
-        Create Group
-      </button>
+          <input
+            placeholder="Your display name"
+            className="w-full rounded-lg border p-3"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
 
-      {message && <p className="max-w-sm text-center text-sm">{message}</p>}
+          <button
+            onClick={createGroup}
+            className="w-full rounded-lg bg-black p-3 text-white"
+          >
+            Create Group
+          </button>
+
+          {message && (
+            <p className="text-center text-sm text-red-600">{message}</p>
+          )}
+        </div>
+      </div>
     </main>
   );
 }

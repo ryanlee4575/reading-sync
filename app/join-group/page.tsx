@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -71,11 +72,13 @@ export default function JoinGroupPage() {
     }
 
     if (activeSession) {
-      const { error: progressError } = await supabase.from("progress").insert({
-        reading_session_id: (activeSession as ActiveSession).id,
-        user_id: user.id,
-        chapter_completed: 0,
-      });
+      const { error: progressError } = await supabase
+        .from("progress")
+        .insert({
+          reading_session_id: (activeSession as ActiveSession).id,
+          user_id: user.id,
+          chapter_completed: 0,
+        });
 
       if (progressError) {
         setMessage(progressError.message);
@@ -87,31 +90,44 @@ export default function JoinGroupPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
-      <h1 className="text-3xl font-bold">Join Group</h1>
+    <main className="flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <Link
+          href="/dashboard"
+          className="mb-6 inline-flex text-sm text-gray-500 hover:text-black"
+        >
+          ← Dashboard
+        </Link>
 
-      <input
-        placeholder="Invite code"
-        className="w-full max-w-sm rounded-lg border p-3 uppercase"
-        value={inviteCode}
-        onChange={(e) => setInviteCode(e.target.value)}
-      />
+        <div className="flex flex-col gap-4">
+          <h1 className="text-3xl font-bold">Join Group</h1>
 
-      <input
-        placeholder="Your display name"
-        className="w-full max-w-sm rounded-lg border p-3"
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
-      />
+          <input
+            placeholder="Invite code"
+            className="w-full rounded-lg border p-3 uppercase"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+          />
 
-      <button
-        onClick={joinGroup}
-        className="w-full max-w-sm rounded-lg bg-black p-3 text-white"
-      >
-        Join Group
-      </button>
+          <input
+            placeholder="Your display name"
+            className="w-full rounded-lg border p-3"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
 
-      {message && <p className="max-w-sm text-center text-sm">{message}</p>}
+          <button
+            onClick={joinGroup}
+            className="w-full rounded-lg bg-black p-3 text-white"
+          >
+            Join Group
+          </button>
+
+          {message && (
+            <p className="text-center text-sm text-red-600">{message}</p>
+          )}
+        </div>
+      </div>
     </main>
   );
 }

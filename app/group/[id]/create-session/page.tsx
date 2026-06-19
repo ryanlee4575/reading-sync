@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 
@@ -94,36 +95,45 @@ export default function CreateSessionPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-xl border p-6 shadow-sm">
-        <h1 className="mb-6 text-3xl font-bold">Start Reading</h1>
+      <div className="w-full max-w-md">
+        <Link
+          href={`/group/${groupId}`}
+          className="mb-6 inline-flex text-sm text-gray-500 hover:text-black"
+        >
+          ← Back to Group
+        </Link>
 
-        <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Book title"
-            value={bookTitle}
-            onChange={(e) => setBookTitle(e.target.value)}
-            className="w-full rounded-lg border p-3"
-          />
+        <div className="rounded-xl border p-6">
+          <h1 className="mb-6 text-3xl font-bold">Start Reading</h1>
 
-          <input
-            type="number"
-            placeholder="Number of chapters"
-            value={totalChapters}
-            onChange={(e) => setTotalChapters(e.target.value)}
-            className="w-full rounded-lg border p-3"
-          />
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Book title"
+              value={bookTitle}
+              onChange={(e) => setBookTitle(e.target.value)}
+              className="w-full rounded-lg border p-3"
+            />
 
-          <button
-            onClick={createSession}
-            className="w-full rounded-lg bg-black p-3 text-white"
-          >
-            Create Reading Session
-          </button>
+            <input
+              type="number"
+              placeholder="Number of chapters"
+              value={totalChapters}
+              onChange={(e) => setTotalChapters(e.target.value)}
+              className="w-full rounded-lg border p-3"
+            />
 
-          {message && (
-            <p className="text-center text-sm text-red-600">{message}</p>
-          )}
+            <button
+              onClick={createSession}
+              className="w-full rounded-lg bg-black p-3 text-white"
+            >
+              Create Reading Session
+            </button>
+
+            {message && (
+              <p className="text-center text-sm text-red-600">{message}</p>
+            )}
+          </div>
         </div>
       </div>
     </main>
