@@ -14,7 +14,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Reading Sync",
-  description: "Read books together and stay in sync with your friends, family, and book clubs",
+  description: "Stay on the same chapter as your friends.",
+  applicationName: "Reading Sync",
+  appleWebApp: {
+    capable: true,
+    title: "Reading Sync",
+    statusBarStyle: "black",
+  },
+};
+
+export const viewport = {
+  themeColor: "#000000",
 };
 
 export default function RootLayout({
