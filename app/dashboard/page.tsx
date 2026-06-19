@@ -25,6 +25,7 @@ type Membership = {
     id: string;
     name: string;
     invite_code: string;
+    created_by: string;
     reading_sessions: ReadingSession[];
   };
 };
@@ -58,6 +59,7 @@ export default function DashboardPage() {
             id,
             name,
             invite_code,
+            created_by,
             reading_sessions (
               id,
               book_title,
@@ -85,7 +87,10 @@ export default function DashboardPage() {
   }, [router, supabase]);
 
   async function deleteGroup(groupId: string) {
-    const confirmed = window.confirm("Delete this group?");
+    const confirmed = window.confirm(
+      "Delete this group permanently? This will remove the book, all members, and everyone's progress. This cannot be undone."
+    );
+
     if (!confirmed) return;
 
     const { error } = await supabase.from("groups").delete().eq("id", groupId);
@@ -98,6 +103,29 @@ export default function DashboardPage() {
 
     setMemberships((prev) =>
       prev.filter((membership) => membership.groups.id !== groupId)
+    );
+  }
+
+  async function leaveGroup(groupId: string) {
+    if (!currentUserId) return;
+
+    const confirmed = window.confirm("Leave this group?");
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("group_members")
+      .delete()
+      .eq("group_id", groupId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      console.error(error);
+      alert(error.message);
+      return;
+    }
+
+    setMemberships((prev) =>
+      prev.filter((membership) => membership.group_id !== groupId)
     );
   }
 
@@ -149,6 +177,9 @@ export default function DashboardPage() {
                   ? (myProgress / session.total_chapters) * 100
                   : 0;
 
+                const isOwner =
+                  membership.groups.created_by === currentUserId;
+
                 return (
                   <div key={membership.group_id} className="py-5">
                     <Link
@@ -182,12 +213,21 @@ export default function DashboardPage() {
                       )}
                     </Link>
 
-                    <button
-                      onClick={() => deleteGroup(membership.groups.id)}
-                      className="mt-3 text-sm text-gray-500 underline"
-                    >
-                      Delete Group
-                    </button>
+                    {isOwner ? (
+                      <button
+                        onClick={() => deleteGroup(membership.groups.id)}
+                        className="mt-3 text-sm text-red-600 underline"
+                      >
+                        Delete Group
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => leaveGroup(membership.groups.id)}
+                        className="mt-3 text-sm text-gray-500 underline"
+                      >
+                        Leave Group
+                      </button>
+                    )}
                   </div>
                 );
               })}
