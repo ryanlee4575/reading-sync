@@ -30,9 +30,13 @@ export default function CreateSessionPage() {
   const [totalChapters, setTotalChapters] = useState("");
   const [progressType, setProgressType] = useState<ProgressType>("chapters");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [unitLabels, setUnitLabels] = useState<string[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [results, setResults] = useState<BookResult[]>([]);
   const [message, setMessage] = useState("");
+
+  const usesCustomUnits =
+    progressType === "milestones" || progressType === "sections";
 
   async function searchBooks() {
     if (!bookTitle.trim()) {
@@ -72,6 +76,34 @@ export default function CreateSessionPage() {
     return "Number of chapters";
   }
 
+  function getCustomUnitLabel(index: number) {
+    if (progressType === "sections") return `Section ${index + 1}`;
+    return `Milestone ${index + 1}`;
+  }
+
+  function handleProgressCountChange(value: string) {
+    setTotalChapters(value);
+
+    const count = Number(value);
+
+    if (!Number.isInteger(count) || count <= 0 || !usesCustomUnits) {
+      setUnitLabels([]);
+      return;
+    }
+
+    setUnitLabels((prev) =>
+      Array.from({ length: count }, (_, index) => prev[index] ?? "")
+    );
+  }
+
+  function updateUnitLabel(index: number, value: string) {
+    setUnitLabels((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }
+
   async function createSession() {
     if (!bookTitle.trim() || !totalChapters) {
       setMessage("Please enter a book title and progress count.");
@@ -83,6 +115,15 @@ export default function CreateSessionPage() {
     if (!Number.isInteger(progressCount) || progressCount <= 0) {
       setMessage("Progress count must be a positive whole number.");
       return;
+    }
+
+    if (usesCustomUnits) {
+      const hasMissingLabel = unitLabels.some((label) => !label.trim());
+
+      if (unitLabels.length !== progressCount || hasMissingLabel) {
+        setMessage("Please label every custom unit.");
+        return;
+      }
     }
 
     setMessage("Creating reading session...");
@@ -115,6 +156,24 @@ export default function CreateSessionPage() {
       console.error(sessionError);
       setMessage(sessionError?.message || "Could not create session.");
       return;
+    }
+
+    if (usesCustomUnits) {
+      const unitRows = unitLabels.map((label, index) => ({
+        reading_session_id: session.id,
+        label: label.trim(),
+        order_index: index + 1,
+      }));
+
+      const { error: unitsError } = await supabase
+        .from("reading_units")
+        .insert(unitRows);
+
+      if (unitsError) {
+        console.error(unitsError);
+        setMessage(unitsError.message);
+        return;
+      }
     }
 
     const { data: members, error: membersError } = await supabase
@@ -239,6 +298,7 @@ export default function CreateSessionPage() {
                     onChange={() => {
                       setProgressType("chapters");
                       setShowAdvanced(false);
+                      setUnitLabels([]);
                     }}
                   />
                   <span>Chapters (Recommended)</span>
@@ -251,6 +311,7 @@ export default function CreateSessionPage() {
                     onChange={() => {
                       setProgressType("pages");
                       setShowAdvanced(false);
+                      setUnitLabels([]);
                     }}
                   />
                   <span>Pages</span>
@@ -270,7 +331,10 @@ export default function CreateSessionPage() {
                       <input
                         type="radio"
                         checked={progressType === "milestones"}
-                        onChange={() => setProgressType("milestones")}
+                        onChange={() => {
+                          setProgressType("milestones");
+                          handleProgressCountChange(totalChapters);
+                        }}
                       />
                       <span>Custom milestones</span>
                     </label>
@@ -279,7 +343,10 @@ export default function CreateSessionPage() {
                       <input
                         type="radio"
                         checked={progressType === "sections"}
-                        onChange={() => setProgressType("sections")}
+                        onChange={() => {
+                          setProgressType("sections");
+                          handleProgressCountChange(totalChapters);
+                        }}
                       />
                       <span>Custom sections</span>
                     </label>
@@ -292,9 +359,29 @@ export default function CreateSessionPage() {
               type="number"
               placeholder={getProgressPlaceholder()}
               value={totalChapters}
-              onChange={(e) => setTotalChapters(e.target.value)}
+              onChange={(e) => handleProgressCountChange(e.target.value)}
               className="w-full rounded-lg border p-3"
             />
+
+            {usesCustomUnits && unitLabels.length > 0 && (
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="font-medium">
+                  Label your{" "}
+                  {progressType === "sections" ? "sections" : "milestones"}
+                </p>
+
+                {unitLabels.map((label, index) => (
+                  <input
+                    key={index}
+                    type="text"
+                    placeholder={getCustomUnitLabel(index)}
+                    value={label}
+                    onChange={(e) => updateUnitLabel(index, e.target.value)}
+                    className="w-full rounded-lg border p-3"
+                  />
+                ))}
+              </div>
+            )}
 
             <button
               onClick={createSession}
