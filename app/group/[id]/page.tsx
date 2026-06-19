@@ -123,20 +123,17 @@ export default function GroupPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("progress")
-      .upsert(
-        {
-          reading_session_id: currentSession.id,
-          user_id: currentUserId,
-          chapter_completed: currentProgress + 1,
-          last_completed_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "reading_session_id,user_id",
-        }
-      )
-      .select();
+    const { error } = await supabase.from("progress").upsert(
+      {
+        reading_session_id: currentSession.id,
+        user_id: currentUserId,
+        chapter_completed: currentProgress + 1,
+        last_completed_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "reading_session_id,user_id",
+      }
+    );
 
     if (error) {
       console.error(error);
@@ -144,7 +141,38 @@ export default function GroupPage() {
       return;
     }
 
-    console.log("Progress updated:", data);
+    setMessage("");
+    await loadGroup();
+  }
+
+  async function undoLastChapter() {
+    if (!currentSession || !currentUserId) return;
+
+    const currentProgress = getMemberProgress(currentUserId);
+
+    if (currentProgress <= 0) {
+      setMessage("You are already at chapter 0.");
+      return;
+    }
+
+    const { error } = await supabase.from("progress").upsert(
+      {
+        reading_session_id: currentSession.id,
+        user_id: currentUserId,
+        chapter_completed: currentProgress - 1,
+        last_completed_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "reading_session_id,user_id",
+      }
+    );
+
+    if (error) {
+      console.error(error);
+      setMessage(error.message);
+      return;
+    }
+
     setMessage("");
     await loadGroup();
   }
@@ -218,6 +246,7 @@ export default function GroupPage() {
           message={message}
           getMemberProgress={getMemberProgress}
           onCompleteChapter={completeNextChapter}
+          onUndoChapter={undoLastChapter}
           onDeleteBook={deleteCurrentBook}
         />
 

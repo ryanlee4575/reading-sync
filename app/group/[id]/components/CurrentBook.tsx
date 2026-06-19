@@ -9,6 +9,7 @@ type CurrentBookProps = {
   message: string;
   getMemberProgress: (userId: string) => number;
   onCompleteChapter: () => void;
+  onUndoChapter: () => void;
   onDeleteBook: () => void;
 };
 
@@ -20,6 +21,7 @@ export default function CurrentBook({
   message,
   getMemberProgress,
   onCompleteChapter,
+  onUndoChapter,
   onDeleteBook,
 }: CurrentBookProps) {
   if (!currentSession) {
@@ -38,9 +40,11 @@ export default function CurrentBook({
   }
 
   const isFinished = myProgress >= currentSession.total_chapters;
+  const canUndo = myProgress > 0;
 
   const everyoneFinished = members.every(
-    (member) => getMemberProgress(member.user_id) >= currentSession.total_chapters
+    (member) =>
+      getMemberProgress(member.user_id) >= currentSession.total_chapters
   );
 
   const percent = (myProgress / currentSession.total_chapters) * 100;
@@ -55,7 +59,9 @@ export default function CurrentBook({
 
       {everyoneFinished ? (
         <div className="mt-6">
-          <p className="text-lg font-semibold">🎉 Everyone finished this book.</p>
+          <p className="text-lg font-semibold">
+            🎉 Everyone finished this book.
+          </p>
           <p className="mt-2 text-gray-600">Ready to start the next one.</p>
 
           <button
@@ -89,6 +95,14 @@ export default function CurrentBook({
             className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300"
           >
             {isFinished ? "Waiting for everyone else" : "Complete Next Chapter"}
+          </button>
+
+          <button
+            onClick={onUndoChapter}
+            disabled={!canUndo}
+            className="mt-3 w-full rounded-lg border py-3 text-sm disabled:text-gray-300"
+          >
+            Undo Last Chapter
           </button>
 
           <button
