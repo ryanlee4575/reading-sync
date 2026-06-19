@@ -123,14 +123,20 @@ export default function GroupPage() {
       return;
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("progress")
-      .update({
-        chapter_completed: currentProgress + 1,
-        last_completed_at: new Date().toISOString(),
-      })
-      .eq("reading_session_id", currentSession.id)
-      .eq("user_id", currentUserId);
+      .upsert(
+        {
+          reading_session_id: currentSession.id,
+          user_id: currentUserId,
+          chapter_completed: currentProgress + 1,
+          last_completed_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "reading_session_id,user_id",
+        }
+      )
+      .select();
 
     if (error) {
       console.error(error);
@@ -138,7 +144,9 @@ export default function GroupPage() {
       return;
     }
 
+    console.log("Progress updated:", data);
     setMessage("");
+    await loadGroup();
   }
 
   async function deleteCurrentBook() {
@@ -162,6 +170,7 @@ export default function GroupPage() {
     }
 
     setMessage("");
+    await loadGroup();
   }
 
   if (loading) {
