@@ -90,6 +90,22 @@ async function claimNotification(
   throw error;
 }
 
+async function getNotificationUserIds(
+  supabase: AdminClient,
+  userIds: string[]
+) {
+  if (userIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("notification_subscriptions")
+    .select("user_id")
+    .in("user_id", userIds);
+
+  if (error) throw error;
+
+  return [...new Set((data ?? []).map((row) => row.user_id as string))];
+}
+
 async function sendClaimedPush(
   supabase: AdminClient,
   readingSessionId: string,
@@ -207,6 +223,10 @@ export async function POST(request: Request) {
     if (progressError) throw progressError;
 
     const memberIds = [...new Set(members.map((member) => member.user_id))];
+    const notificationUserIds = await getNotificationUserIds(
+      supabase,
+      memberIds
+    );
     const noun = getProgressNoun(session.progress_type);
     const sent: string[] = [];
 
@@ -241,7 +261,7 @@ export async function POST(request: Request) {
             readingSessionId,
             "weekly_goal",
             eventKey,
-            memberIds,
+            notificationUserIds,
             `${actor.display_name} completed their weekly goal: ${session.goal_amount} ${session.goal_unit ?? `${noun}s`}.`,
             session.group_id
           );
@@ -284,7 +304,7 @@ export async function POST(request: Request) {
           readingSessionId,
           "group_ready",
           eventKey,
-          memberIds,
+          notificationUserIds,
           `Everyone is ready for ${noun} ${nextGoal} in ${session.book_title}.`,
           session.group_id
         );
