@@ -169,6 +169,18 @@ export default function GroupPage() {
         setMessage(eventError.message);
         return;
       }
+
+      if (safeValue > currentProgress) {
+        void fetch("/api/notifications/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ readingSessionId: currentSession.id }),
+        }).then((response) => {
+          if (!response.ok) {
+            console.error("Could not send push notifications.");
+          }
+        });
+      }
     }
 
     setMessage("");
