@@ -58,6 +58,13 @@ async function sendPush(
   if (!response.ok) {
     throw new Error(`OneSignal notification failed: ${await response.text()}`);
   }
+
+  const result = (await response.json()) as {
+    id?: string;
+    recipients?: number;
+  };
+
+  console.info("OneSignal notification queued:", result);
 }
 
 async function claimNotification(
@@ -92,6 +99,33 @@ async function getSubscriptionIds(
   if (error) throw error;
 
   return (data ?? []).map((row) => row.onesignal_subscription_id as string);
+}
+
+async function sendClaimedPush(
+  supabase: AdminClient,
+  readingSessionId: string,
+  eventType: "weekly_goal" | "group_ready",
+  eventKey: string,
+  subscriptionIds: string[],
+  contents: string,
+  groupId: string
+) {
+  try {
+    await sendPush(subscriptionIds, contents, groupId);
+  } catch (error) {
+    const { error: releaseError } = await supabase
+      .from("notification_events")
+      .delete()
+      .eq("reading_session_id", readingSessionId)
+      .eq("event_type", eventType)
+      .eq("event_key", eventKey);
+
+    if (releaseError) {
+      console.error("Could not release failed notification event:", releaseError);
+    }
+
+    throw error;
+  }
 }
 
 export async function POST(request: Request) {
@@ -205,15 +239,20 @@ export async function POST(request: Request) {
       );
 
       if (weeklyProgress >= session.goal_amount) {
+        const eventKey = `${weekStart.toISOString()}:${user.id}`;
         const claimed = await claimNotification(
           supabase,
           readingSessionId,
           "weekly_goal",
-          `${weekStart.toISOString()}:${user.id}`
+          eventKey
         );
 
         if (claimed) {
-          await sendPush(
+          await sendClaimedPush(
+            supabase,
+            readingSessionId,
+            "weekly_goal",
+            eventKey,
             subscriptionIds,
             `${actor.display_name} completed their weekly goal: ${session.goal_amount} ${session.goal_unit ?? `${noun}s`}.`,
             session.group_id
@@ -243,15 +282,20 @@ export async function POST(request: Request) {
 
     if (currentGroupProgress > previousGroupProgress) {
       const nextGoal = currentGroupProgress + 1;
+      const eventKey = String(nextGoal);
       const claimed = await claimNotification(
         supabase,
         readingSessionId,
         "group_ready",
-        String(nextGoal)
+        eventKey
       );
 
       if (claimed) {
-        await sendPush(
+        await sendClaimedPush(
+          supabase,
+          readingSessionId,
+          "group_ready",
+          eventKey,
           subscriptionIds,
           `Everyone is ready for ${noun} ${nextGoal} in ${session.book_title}.`,
           session.group_id
