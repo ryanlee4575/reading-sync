@@ -2,41 +2,114 @@
 
 import { useEffect, useState } from "react";
 import OneSignal from "react-onesignal";
+import { createClient } from "@/lib/supabase/client";
 
-type NotificationState = "idle" | "requesting" | "enabled" | "blocked" | "unsupported";
-
-function getNotificationState(): NotificationState {
-  if (!("Notification" in window)) return "unsupported";
-  if (Notification.permission === "granted") return "enabled";
-  if (Notification.permission === "denied") return "blocked";
-  return "idle";
-}
+type NotificationState =
+  | "checking"
+  | "enabled"
+  | "disabled"
+  | "blocked"
+  | "unsupported";
 
 export default function EnableNotificationsButton() {
   const [notificationState, setNotificationState] =
-    useState<NotificationState>("idle");
+    useState<NotificationState>("checking");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setNotificationState(getNotificationState());
+    if (!("Notification" in window)) {
+      setNotificationState("unsupported");
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      setNotificationState("blocked");
+      return;
+    }
+
+    const checkSubscription = () => {
+      const optedIn = OneSignal.User.PushSubscription.optedIn;
+      setNotificationState(optedIn ? "enabled" : "disabled");
+      return optedIn;
+    };
+
+    if (checkSubscription()) return;
+
+    let attempts = 0;
+    const interval = window.setInterval(() => {
+      attempts += 1;
+      if (checkSubscription() || attempts === 10) {
+        window.clearInterval(interval);
+      }
+    }, 500);
+
+    return () => window.clearInterval(interval);
   }, []);
 
-  async function enableNotifications() {
-    setNotificationState("requesting");
+  async function updateNotifications(enable: boolean) {
+    setSaving(true);
 
     try {
-      const granted = await OneSignal.Notifications.requestPermission();
-      setNotificationState(granted ? "enabled" : getNotificationState());
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const subscriptionId = OneSignal.User.PushSubscription.id;
+
+      if (enable) {
+        await OneSignal.User.PushSubscription.optIn();
+
+        const enabledSubscriptionId = OneSignal.User.PushSubscription.id;
+        if (
+          !enabledSubscriptionId ||
+          !OneSignal.User.PushSubscription.optedIn
+        ) {
+          setNotificationState("disabled");
+          return;
+        }
+
+        const { error } = await supabase
+          .from("notification_subscriptions")
+          .upsert(
+            {
+              user_id: user.id,
+              onesignal_subscription_id: enabledSubscriptionId,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "onesignal_subscription_id" }
+          );
+
+        if (error) throw error;
+
+        setNotificationState("enabled");
+        return;
+      }
+
+      await OneSignal.User.PushSubscription.optOut();
+
+      if (subscriptionId) {
+        const { error } = await supabase
+          .from("notification_subscriptions")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("onesignal_subscription_id", subscriptionId);
+
+        if (error) throw error;
+      }
+
+      setNotificationState("disabled");
     } catch (error) {
-      console.error("Notification permission request failed:", error);
-      setNotificationState(getNotificationState());
+      console.error("Notification preference update failed:", error);
+      setNotificationState("disabled");
+    } finally {
+      setSaving(false);
     }
   }
 
   if (notificationState === "unsupported") return null;
-
-  if (notificationState === "enabled") {
-    return <p className="text-sm text-green-700">Notifications enabled</p>;
-  }
 
   if (notificationState === "blocked") {
     return (
@@ -46,15 +119,18 @@ export default function EnableNotificationsButton() {
     );
   }
 
+  const isEnabled = notificationState === "enabled";
+
   return (
-    <button
-      onClick={enableNotifications}
-      disabled={notificationState === "requesting"}
-      className="rounded-lg border px-4 py-2 text-sm disabled:text-gray-400"
-    >
-      {notificationState === "requesting"
-        ? "Enabling..."
-        : "Enable notifications"}
-    </button>
+    <label className="inline-flex items-center gap-3 text-sm">
+      <span>Notifications</span>
+      <input
+        type="checkbox"
+        checked={isEnabled}
+        disabled={saving || notificationState === "checking"}
+        onChange={(event) => updateNotifications(event.target.checked)}
+        className="h-4 w-4"
+      />
+    </label>
   );
 }
