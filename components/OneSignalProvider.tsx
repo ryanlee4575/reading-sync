@@ -38,6 +38,8 @@ export default function OneSignalProvider() {
       await OneSignal.init({
         appId: oneSignalAppId,
         allowLocalhostAsSecureOrigin: true,
+        serviceWorkerPath: "/OneSignalSDKWorker.js",
+        serviceWorkerParam: { scope: "/" },
       });
 
       const {

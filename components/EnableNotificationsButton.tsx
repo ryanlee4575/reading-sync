@@ -28,9 +28,12 @@ export default function EnableNotificationsButton() {
     }
 
     const checkSubscription = () => {
-      const optedIn = OneSignal.User.PushSubscription.optedIn;
-      setNotificationState(optedIn ? "enabled" : "disabled");
-      return optedIn;
+      const hasSubscription =
+        OneSignal.User.PushSubscription.optedIn &&
+        Boolean(OneSignal.User.PushSubscription.id);
+
+      setNotificationState(hasSubscription ? "enabled" : "disabled");
+      return hasSubscription;
     };
 
     if (checkSubscription()) return;
