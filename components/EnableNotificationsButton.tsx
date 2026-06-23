@@ -60,7 +60,9 @@ export default function EnableNotificationsButton() {
       const subscriptionId = OneSignal.User.PushSubscription.id;
 
       if (enable) {
+        await OneSignal.login(user.id);
         await OneSignal.User.PushSubscription.optIn();
+        await OneSignal.login(user.id);
 
         const enabledSubscriptionId = OneSignal.User.PushSubscription.id;
         if (

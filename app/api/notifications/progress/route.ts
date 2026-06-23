@@ -206,7 +206,7 @@ export async function POST(request: Request) {
 
     if (progressError) throw progressError;
 
-    const memberIds = members.map((member) => member.user_id);
+    const memberIds = [...new Set(members.map((member) => member.user_id))];
     const noun = getProgressNoun(session.progress_type);
     const sent: string[] = [];
 
