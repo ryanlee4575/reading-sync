@@ -16,6 +16,9 @@ export type ReadingSession = {
   is_active: boolean;
   cover_url: string | null;
   progress_type: string;
+  goal_type: string | null;
+  goal_amount: number | null;
+  goal_unit: string | null;
   progress: ProgressRow[];
 };
 

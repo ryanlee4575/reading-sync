@@ -10,6 +10,7 @@ import type { Group } from "./types";
 import GroupHeader from "./components/GroupHeader";
 import CurrentBook from "./components/CurrentBook";
 import ProgressList from "./components/ProgressList";
+import ReadingGoal from "./components/ReadingGoal";
 
 export default function GroupPage() {
   const supabase = createClient();
@@ -52,6 +53,9 @@ export default function GroupPage() {
           created_at,
           is_active,
           cover_url,
+          goal_type,
+          goal_amount,
+          goal_unit,
           progress (
             user_id,
             chapter_completed
@@ -125,6 +129,7 @@ export default function GroupPage() {
   async function setProgress(value: number) {
     if (!currentSession || !currentUserId) return;
 
+    const currentProgress = getMemberProgress(currentUserId);
     const safeValue = Math.max(
       0,
       Math.min(value, currentSession.total_chapters)
@@ -141,6 +146,50 @@ export default function GroupPage() {
         onConflict: "reading_session_id,user_id",
       }
     );
+
+    if (error) {
+      console.error(error);
+      setMessage(error.message);
+      return;
+    }
+
+    if (safeValue !== currentProgress) {
+      const { error: eventError } = await supabase
+        .from("progress_events")
+        .insert({
+          reading_session_id: currentSession.id,
+          user_id: currentUserId,
+          previous_progress: currentProgress,
+          new_progress: safeValue,
+          delta: safeValue - currentProgress,
+        });
+
+      if (eventError) {
+        console.error(eventError);
+        setMessage(eventError.message);
+        return;
+      }
+    }
+
+    setMessage("");
+    await loadGroup();
+  }
+
+  async function updateGoal(
+    goalType: string,
+    goalAmount: number | null,
+    goalUnit: string | null
+  ) {
+    if (!currentSession) return;
+
+    const { error } = await supabase
+      .from("reading_sessions")
+      .update({
+        goal_type: goalType,
+        goal_amount: goalAmount,
+        goal_unit: goalUnit,
+      })
+      .eq("id", currentSession.id);
 
     if (error) {
       console.error(error);
@@ -253,6 +302,12 @@ export default function GroupPage() {
           onUndoChapter={undoLastChapter}
           onSetProgress={setProgress}
           onDeleteBook={deleteCurrentBook}
+        />
+
+        <ReadingGoal
+          currentSession={currentSession}
+          myProgress={myProgress}
+          onUpdateGoal={updateGoal}
         />
 
         <ProgressList
