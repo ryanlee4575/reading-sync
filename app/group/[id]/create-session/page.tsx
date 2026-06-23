@@ -30,13 +30,18 @@ export default function CreateSessionPage() {
   const [totalChapters, setTotalChapters] = useState("");
   const [progressType, setProgressType] = useState<ProgressType>("chapters");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [unitLabels, setUnitLabels] = useState<string[]>([]);
+  const [customUnitText, setCustomUnitText] = useState("");
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [results, setResults] = useState<BookResult[]>([]);
   const [message, setMessage] = useState("");
 
   const usesCustomUnits =
     progressType === "milestones" || progressType === "sections";
+
+  const customUnitLabels = customUnitText
+    .split("\n")
+    .map((label) => label.trim())
+    .filter(Boolean);
 
   async function searchBooks() {
     if (!bookTitle.trim()) {
@@ -71,57 +76,36 @@ export default function CreateSessionPage() {
 
   function getProgressPlaceholder() {
     if (progressType === "pages") return "Number of pages";
-    if (progressType === "milestones") return "Number of milestones";
-    if (progressType === "sections") return "Number of sections";
     return "Number of chapters";
   }
 
-  function getCustomUnitLabel(index: number) {
-    if (progressType === "sections") return `Section ${index + 1}`;
-    return `Milestone ${index + 1}`;
-  }
-
-  function handleProgressCountChange(value: string) {
-    setTotalChapters(value);
-
-    const count = Number(value);
-
-    if (!Number.isInteger(count) || count <= 0 || !usesCustomUnits) {
-      setUnitLabels([]);
-      return;
-    }
-
-    setUnitLabels((prev) =>
-      Array.from({ length: count }, (_, index) => prev[index] ?? "")
-    );
-  }
-
-  function updateUnitLabel(index: number, value: string) {
-    setUnitLabels((prev) => {
-      const next = [...prev];
-      next[index] = value;
-      return next;
-    });
+  function getCustomUnitName() {
+    return progressType === "sections" ? "sections" : "milestones";
   }
 
   async function createSession() {
-    if (!bookTitle.trim() || !totalChapters) {
-      setMessage("Please enter a book title and progress count.");
+    if (!bookTitle.trim()) {
+      setMessage("Please enter a book title.");
       return;
     }
 
-    const progressCount = Number(totalChapters);
-
-    if (!Number.isInteger(progressCount) || progressCount <= 0) {
-      setMessage("Progress count must be a positive whole number.");
-      return;
-    }
+    let progressCount = Number(totalChapters);
 
     if (usesCustomUnits) {
-      const hasMissingLabel = unitLabels.some((label) => !label.trim());
+      progressCount = customUnitLabels.length;
 
-      if (unitLabels.length !== progressCount || hasMissingLabel) {
-        setMessage("Please label every custom unit.");
+      if (progressCount <= 0) {
+        setMessage(`Please enter at least one ${getCustomUnitName()}.`);
+        return;
+      }
+    } else {
+      if (!totalChapters) {
+        setMessage("Please enter a progress count.");
+        return;
+      }
+
+      if (!Number.isInteger(progressCount) || progressCount <= 0) {
+        setMessage("Progress count must be a positive whole number.");
         return;
       }
     }
@@ -159,9 +143,9 @@ export default function CreateSessionPage() {
     }
 
     if (usesCustomUnits) {
-      const unitRows = unitLabels.map((label, index) => ({
+      const unitRows = customUnitLabels.map((label, index) => ({
         reading_session_id: session.id,
-        label: label.trim(),
+        label,
         order_index: index + 1,
       }));
 
@@ -298,7 +282,6 @@ export default function CreateSessionPage() {
                     onChange={() => {
                       setProgressType("chapters");
                       setShowAdvanced(false);
-                      setUnitLabels([]);
                     }}
                   />
                   <span>Chapters (Recommended)</span>
@@ -311,7 +294,6 @@ export default function CreateSessionPage() {
                     onChange={() => {
                       setProgressType("pages");
                       setShowAdvanced(false);
-                      setUnitLabels([]);
                     }}
                   />
                   <span>Pages</span>
@@ -331,10 +313,7 @@ export default function CreateSessionPage() {
                       <input
                         type="radio"
                         checked={progressType === "milestones"}
-                        onChange={() => {
-                          setProgressType("milestones");
-                          handleProgressCountChange(totalChapters);
-                        }}
+                        onChange={() => setProgressType("milestones")}
                       />
                       <span>Custom milestones</span>
                     </label>
@@ -343,10 +322,7 @@ export default function CreateSessionPage() {
                       <input
                         type="radio"
                         checked={progressType === "sections"}
-                        onChange={() => {
-                          setProgressType("sections");
-                          handleProgressCountChange(totalChapters);
-                        }}
+                        onChange={() => setProgressType("sections")}
                       />
                       <span>Custom sections</span>
                     </label>
@@ -355,32 +331,36 @@ export default function CreateSessionPage() {
               </div>
             </div>
 
-            <input
-              type="number"
-              placeholder={getProgressPlaceholder()}
-              value={totalChapters}
-              onChange={(e) => handleProgressCountChange(e.target.value)}
-              className="w-full rounded-lg border p-3"
-            />
-
-            {usesCustomUnits && unitLabels.length > 0 && (
-              <div className="space-y-3 rounded-lg border p-4">
+            {usesCustomUnits ? (
+              <div className="rounded-lg border p-4">
                 <p className="font-medium">
-                  Label your{" "}
-                  {progressType === "sections" ? "sections" : "milestones"}
+                  Label your {getCustomUnitName()}
                 </p>
 
-                {unitLabels.map((label, index) => (
-                  <input
-                    key={index}
-                    type="text"
-                    placeholder={getCustomUnitLabel(index)}
-                    value={label}
-                    onChange={(e) => updateUnitLabel(index, e.target.value)}
-                    className="w-full rounded-lg border p-3"
-                  />
-                ))}
+                <textarea
+                  placeholder={
+                    progressType === "sections"
+                      ? "Prologue\nPart I\nPart II\nEpilogue"
+                      : "Beginning\nFirst twist\nMidpoint\nFinale"
+                  }
+                  value={customUnitText}
+                  onChange={(e) => setCustomUnitText(e.target.value)}
+                  className="mt-3 min-h-40 w-full rounded-lg border p-3"
+                />
+
+                <p className="mt-2 text-sm text-gray-500">
+                  One {progressType === "sections" ? "section" : "milestone"}{" "}
+                  per line. Detected {customUnitLabels.length}.
+                </p>
               </div>
+            ) : (
+              <input
+                type="number"
+                placeholder={getProgressPlaceholder()}
+                value={totalChapters}
+                onChange={(e) => setTotalChapters(e.target.value)}
+                className="w-full rounded-lg border p-3"
+              />
             )}
 
             <button
