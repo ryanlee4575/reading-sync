@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import LogoutButton from "@/components/LogoutButton";
+import EnableNotificationsButton from "@/components/EnableNotificationsButton";
 
 type ProgressRow = {
   user_id: string;
@@ -165,6 +166,8 @@ export default function DashboardPage() {
           <Link href="/join-group" className="rounded-lg border px-4 py-2">
             Join Group
           </Link>
+
+          <EnableNotificationsButton />
         </div>
 
         <section>
