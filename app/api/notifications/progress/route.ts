@@ -33,11 +33,11 @@ function getProgressNoun(progressType: string) {
 }
 
 async function sendPush(
-  subscriptionIds: string[],
+  userIds: string[],
   contents: string,
   groupId: string
 ) {
-  if (subscriptionIds.length === 0) return;
+  if (userIds.length === 0) return;
 
   const response = await fetch("https://api.onesignal.com/notifications", {
     method: "POST",
@@ -48,7 +48,7 @@ async function sendPush(
     body: JSON.stringify({
       app_id: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID,
       target_channel: "push",
-      include_subscription_ids: subscriptionIds,
+      include_aliases: { external_id: userIds },
       headings: { en: "Reading Sync" },
       contents: { en: contents },
       url: `/group/${groupId}`,
@@ -62,7 +62,12 @@ async function sendPush(
   const result = (await response.json()) as {
     id?: string;
     recipients?: number;
+    errors?: unknown;
   };
+
+  if (result.errors) {
+    throw new Error(`OneSignal notification failed: ${JSON.stringify(result.errors)}`);
+  }
 
   console.info("OneSignal notification queued:", result);
 }
@@ -85,33 +90,17 @@ async function claimNotification(
   throw error;
 }
 
-async function getSubscriptionIds(
-  supabase: AdminClient,
-  userIds: string[]
-) {
-  if (userIds.length === 0) return [];
-
-  const { data, error } = await supabase
-    .from("notification_subscriptions")
-    .select("onesignal_subscription_id")
-    .in("user_id", userIds);
-
-  if (error) throw error;
-
-  return (data ?? []).map((row) => row.onesignal_subscription_id as string);
-}
-
 async function sendClaimedPush(
   supabase: AdminClient,
   readingSessionId: string,
   eventType: "weekly_goal" | "group_ready",
   eventKey: string,
-  subscriptionIds: string[],
+  userIds: string[],
   contents: string,
   groupId: string
 ) {
   try {
-    await sendPush(subscriptionIds, contents, groupId);
+    await sendPush(userIds, contents, groupId);
   } catch (error) {
     const { error: releaseError } = await supabase
       .from("notification_events")
@@ -218,7 +207,6 @@ export async function POST(request: Request) {
     if (progressError) throw progressError;
 
     const memberIds = members.map((member) => member.user_id);
-    const subscriptionIds = await getSubscriptionIds(supabase, memberIds);
     const noun = getProgressNoun(session.progress_type);
     const sent: string[] = [];
 
@@ -253,7 +241,7 @@ export async function POST(request: Request) {
             readingSessionId,
             "weekly_goal",
             eventKey,
-            subscriptionIds,
+            memberIds,
             `${actor.display_name} completed their weekly goal: ${session.goal_amount} ${session.goal_unit ?? `${noun}s`}.`,
             session.group_id
           );
@@ -296,7 +284,7 @@ export async function POST(request: Request) {
           readingSessionId,
           "group_ready",
           eventKey,
-          subscriptionIds,
+          memberIds,
           `Everyone is ready for ${noun} ${nextGoal} in ${session.book_title}.`,
           session.group_id
         );
