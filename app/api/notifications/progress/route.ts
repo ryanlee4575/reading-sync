@@ -1,9 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-type AdminClient = ReturnType<typeof createClient<any>>;
+type AdminClient = SupabaseClient;
 
 type ProgressRow = {
   user_id: string;
@@ -15,21 +15,32 @@ type ProgressEvent = {
   new_progress: number;
 };
 
-function getWeekStart() {
-  const weekStart = new Date();
-  const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
-
-  weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
-  weekStart.setUTCHours(0, 0, 0, 0);
-
-  return weekStart;
-}
-
 function getProgressNoun(progressType: string) {
   if (progressType === "pages") return "page";
   if (progressType === "milestones") return "milestone";
   if (progressType === "sections") return "section";
   return "chapter";
+}
+
+function getGoalLabel(
+  progressType: string,
+  amount: number,
+  readingUnits: { label: string; order_index: number }[] | undefined
+) {
+  if (progressType === "pages") return `Page ${amount}`;
+
+  if (progressType === "milestones" || progressType === "sections") {
+    const unit = readingUnits?.find(
+      (readingUnit) => readingUnit.order_index === amount
+    );
+
+    if (unit) return unit.label;
+
+    const fallback = progressType === "sections" ? "Section" : "Milestone";
+    return `${fallback} ${amount}`;
+  }
+
+  return `Chapter ${amount}`;
 }
 
 async function sendPush(
@@ -171,7 +182,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const supabase = createClient<any>(
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SECRET_KEY,
     { auth: { autoRefreshToken: false, persistSession: false } }
@@ -180,7 +191,19 @@ export async function POST(request: Request) {
   try {
     const { data: session, error: sessionError } = await supabase
       .from("reading_sessions")
-      .select("id, group_id, book_title, progress_type, goal_type, goal_amount, goal_unit")
+      .select(`
+        id,
+        group_id,
+        book_title,
+        progress_type,
+        goal_type,
+        goal_amount,
+        goal_unit,
+        reading_units (
+          label,
+          order_index
+        )
+      `)
       .eq("id", readingSessionId)
       .single();
 
@@ -230,24 +253,12 @@ export async function POST(request: Request) {
     const noun = getProgressNoun(session.progress_type);
     const sent: string[] = [];
 
-    if (session.goal_type === "weekly" && session.goal_amount) {
-      const weekStart = getWeekStart();
-      const { data: weeklyEvents, error: weeklyEventsError } = await supabase
-        .from("progress_events")
-        .select("delta")
-        .eq("reading_session_id", readingSessionId)
-        .eq("user_id", user.id)
-        .gte("created_at", weekStart.toISOString());
-
-      if (weeklyEventsError) throw weeklyEventsError;
-
-      const weeklyProgress = (weeklyEvents ?? []).reduce(
-        (total, event) => total + Number(event.delta),
-        0
-      );
-
-      if (weeklyProgress >= session.goal_amount) {
-        const eventKey = `${weekStart.toISOString()}:${user.id}`;
+    if (session.goal_type === "target" && session.goal_amount) {
+      if (
+        latestEvent.previous_progress < session.goal_amount &&
+        latestEvent.new_progress >= session.goal_amount
+      ) {
+        const eventKey = `${session.goal_amount}:${user.id}`;
         const claimed = await claimNotification(
           supabase,
           readingSessionId,
@@ -256,13 +267,19 @@ export async function POST(request: Request) {
         );
 
         if (claimed) {
+          const goalLabel = getGoalLabel(
+            session.progress_type,
+            session.goal_amount,
+            session.reading_units
+          );
+
           await sendClaimedPush(
             supabase,
             readingSessionId,
             "weekly_goal",
             eventKey,
             notificationUserIds,
-            `${actor.display_name} completed their weekly goal: ${session.goal_amount} ${session.goal_unit ?? `${noun}s`}.`,
+            `${actor.display_name} reached the goal: ${goalLabel}.`,
             session.group_id
           );
           sent.push("weekly_goal");

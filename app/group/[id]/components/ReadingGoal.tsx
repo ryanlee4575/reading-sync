@@ -20,6 +20,27 @@ function getUnitLabel(progressType: string | undefined) {
   return "chapters";
 }
 
+function getGoalLabel(currentSession: ReadingSession, amount: number) {
+  if (currentSession.progress_type === "pages") return `Page ${amount}`;
+
+  if (
+    currentSession.progress_type === "milestones" ||
+    currentSession.progress_type === "sections"
+  ) {
+    const unit = currentSession.reading_units.find(
+      (readingUnit) => readingUnit.order_index === amount
+    );
+
+    if (unit) return unit.label;
+
+    const fallback =
+      currentSession.progress_type === "sections" ? "Section" : "Milestone";
+    return `${fallback} ${amount}`;
+  }
+
+  return `Chapter ${amount}`;
+}
+
 export default function ReadingGoal({
   currentSession,
   myProgress,
@@ -33,17 +54,26 @@ export default function ReadingGoal({
   if (!currentSession) return null;
 
   const unit = getUnitLabel(currentSession.progress_type);
-  const goalVerb =
-    currentSession.progress_type === "milestones" ||
-    currentSession.progress_type === "sections"
-      ? "Complete"
-      : "Read";
   const hasReachedGoal =
-    currentSession.goal_type === "weekly" &&
+    currentSession.goal_type === "target" &&
     currentSession.goal_amount !== null &&
     myProgress >= currentSession.goal_amount;
+  const goalLabel =
+    currentSession.goal_amount !== null
+      ? getGoalLabel(currentSession, currentSession.goal_amount)
+      : null;
 
-  async function saveWeeklyGoal() {
+  function startEditing() {
+    if (!currentSession) return;
+
+    setAmount(
+      currentSession.goal_amount ? String(currentSession.goal_amount) : ""
+    );
+    setLocalMessage("");
+    setEditing(true);
+  }
+
+  async function saveGoal() {
     const parsedAmount = Number(amount);
 
     if (!Number.isInteger(parsedAmount) || parsedAmount <= 0) {
@@ -54,7 +84,7 @@ export default function ReadingGoal({
     setSaving(true);
     setLocalMessage("");
 
-    await onUpdateGoal("weekly", parsedAmount, unit);
+    await onUpdateGoal("target", parsedAmount, unit);
 
     setSaving(false);
     setEditing(false);
@@ -76,11 +106,8 @@ export default function ReadingGoal({
 
       {!editing ? (
         <div className="mt-2">
-          {currentSession.goal_type === "weekly" ? (
-            <p className="font-medium">
-              {goalVerb} {currentSession.goal_amount} {currentSession.goal_unit} every
-              week.
-            </p>
+          {currentSession.goal_type === "target" && goalLabel ? (
+            <p className="font-medium">Goal: {goalLabel}</p>
           ) : (
             <p className="text-gray-600">No reading goal set.</p>
           )}
@@ -90,12 +117,12 @@ export default function ReadingGoal({
               role="status"
               className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-green-800"
             >
-              You hit your weekly goal.
+              You reached the goal.
             </div>
           )}
 
           <button
-            onClick={() => setEditing(true)}
+            onClick={startEditing}
             className="mt-4 rounded-lg bg-black px-4 py-2 text-white"
           >
             Set Goal
@@ -103,11 +130,11 @@ export default function ReadingGoal({
         </div>
       ) : (
         <div className="mt-4 rounded-lg border p-4">
-          <p className="font-medium">How would you like to pace this book?</p>
+          <p className="font-medium">Set goal</p>
 
           <div className="mt-4 space-y-3">
             <div className="flex items-center gap-2">
-              <span>Read</span>
+              <span>Reach:</span>
 
               <input
                 type="number"
@@ -115,16 +142,14 @@ export default function ReadingGoal({
                 onChange={(e) => setAmount(e.target.value)}
                 className="w-20 rounded-lg border p-2 text-center"
               />
-
-              <span>{unit} every week</span>
             </div>
 
             <button
-              onClick={saveWeeklyGoal}
+              onClick={saveGoal}
               disabled={saving}
               className="w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300"
             >
-              Save Weekly Goal
+              Save Goal
             </button>
 
             <button

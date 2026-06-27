@@ -56,6 +56,10 @@ export default function GroupPage() {
           goal_type,
           goal_amount,
           goal_unit,
+          reading_units (
+            label,
+            order_index
+          ),
           progress (
             user_id,
             chapter_completed
